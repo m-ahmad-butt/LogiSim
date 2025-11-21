@@ -1,0 +1,404 @@
+package org.scd.ui;
+
+// import org.scd.business.service.CircuitService;
+import javax.swing.*;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+
+
+public class CircuitCanvas extends JPanel {
+    // private CircuitService service; 
+    private List<GateComponent> gates;
+    private List<LEDComponent> leds;
+    private List<WireConnection> wires;
+    
+    // Layout settings
+    private int currentX = 20;
+    private int currentY = 20;
+    private int gateWidth = 150;  // Updated for new gate panel width
+    private int gateHeight = 80;  // Updated for new gate panel height
+    private int horizontalSpacing = 50; // Adjusted spacing
+    private int verticalSpacing = 80;   // Increased from 30 to 80 for more wire space
+    private int maxColumns = 5; // Reduced from 6 to 5 due to wider gates
+    private int currentColumn = 0;
+    private int currentRow = 0;
+    
+    // Position tracking for wire routing
+    private List<Integer> rowYPositions;     // Y position of each row
+    private List<Integer> columnXPositions;  // X position of each column
+    private List<Integer> routingChannels;   // Y positions of routing channels between rows
+    
+    // Connector mode
+    private boolean connectorMode = false;
+    private GateComponent selectedSource = null;
+    
+    public CircuitCanvas() {
+        // this.service = CircuitService.getInstance();
+        gates = new ArrayList<>();
+        leds = new ArrayList<>();
+        wires = new ArrayList<>();
+        rowYPositions = new ArrayList<>();
+        columnXPositions = new ArrayList<>();
+        routingChannels = new ArrayList<>();
+        
+        // Initialize first row and column positions
+        rowYPositions.add(currentY);
+        for (int i = 0; i < maxColumns; i++) {
+            columnXPositions.add(currentX + (i * (gateWidth + horizontalSpacing)));
+        }
+        
+        setLayout(null); 
+        setBackground(Color.WHITE);
+        setPreferredSize(new Dimension(1800, 1000));
+    }
+    
+ 
+    public void addGate(String gateType) {
+        // Calculate position
+        int x = currentX + (currentColumn * (gateWidth + horizontalSpacing));
+        int y = currentY + (currentRow * (gateHeight + verticalSpacing));
+        
+        GateComponent gate = new GateComponent(gateType, x, y);
+        gate.setRowColumn(currentRow, currentColumn); // Store row/column info
+        gates.add(gate);
+        add(gate);
+        
+        // Update position for next gate
+        currentColumn++;
+        if (currentColumn >= maxColumns) {
+            currentColumn = 0;
+            currentRow++;
+            
+            // Add new row position and routing channel
+            int newRowY = currentY + (currentRow * (gateHeight + verticalSpacing));
+            rowYPositions.add(newRowY);
+            
+            // Routing channel is in the middle of the gap between rows
+            int previousRowY = currentY + ((currentRow - 1) * (gateHeight + verticalSpacing));
+            int channelY = previousRowY + gateHeight + (verticalSpacing / 2);
+            routingChannels.add(channelY);
+        }
+        
+        // Update preferred size if needed
+        int requiredHeight = currentY + ((currentRow + 1) * (gateHeight + verticalSpacing)) + 50;
+        if (requiredHeight > getPreferredSize().height) {
+            setPreferredSize(new Dimension(800, requiredHeight));
+            revalidate();
+        }
+        
+        repaint();
+    }
+    
+  
+    public void addLED() {
+        // Calculate position
+        int x = currentX + (currentColumn * (gateWidth + horizontalSpacing));
+        int y = currentY + (currentRow * (gateHeight + verticalSpacing));
+        
+        LEDComponent led = new LEDComponent(x, y);
+        led.setRowColumn(currentRow, currentColumn); // Store row/column info
+        leds.add(led);
+        add(led);
+        
+        // Update position for next component
+        currentColumn++;
+        if (currentColumn >= maxColumns) {
+            currentColumn = 0;
+            currentRow++;
+            
+            // Add new row position and routing channel
+            int newRowY = currentY + (currentRow * (gateHeight + verticalSpacing));
+            rowYPositions.add(newRowY);
+            
+            // Routing channel is in the middle of the gap between rows
+            int previousRowY = currentY + ((currentRow - 1) * (gateHeight + verticalSpacing));
+            int channelY = previousRowY + gateHeight + (verticalSpacing / 2);
+            routingChannels.add(channelY);
+        }
+        
+        // Update preferred size if needed
+        int requiredHeight = currentY + ((currentRow + 1) * (gateHeight + verticalSpacing)) + 50;
+        if (requiredHeight > getPreferredSize().height) {
+            setPreferredSize(new Dimension(800, requiredHeight));
+            revalidate();
+        }
+        
+        repaint();
+    }
+    
+ 
+    public void setConnectorMode(boolean enabled) {
+        this.connectorMode = enabled;
+        if (enabled) {
+            selectedSource = null;
+            JOptionPane.showMessageDialog(this, 
+                "Connector Mode: Click on a source gate, then click on a target component");
+        } else {
+            selectedSource = null;
+            JOptionPane.showMessageDialog(this, 
+                "Connector Mode Disabled");
+        }
+    }
+    
+   
+    public void toggleConnectorMode() {
+        setConnectorMode(!connectorMode);
+    }
+    
+   
+    public boolean isConnectorMode() {
+        return connectorMode;
+    }
+    
+  
+    public void handleComponentClick(Object component) {
+        if (!connectorMode) {
+            return;
+        }
+        
+        if (selectedSource == null) {
+            // First click: select source gate
+            if (component instanceof GateComponent) {
+                GateComponent clickedGate = (GateComponent) component;
+                if (clickedGate.getOutput() != null) {
+                    selectedSource = clickedGate;
+                    JOptionPane.showMessageDialog(this, 
+                        "Source selected: " + clickedGate.getGateType() + " Gate " + clickedGate.getComponentId() + 
+                        "\nNow select the destination component");
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "This gate has no output yet. Please set its inputs first.");
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Please click on a gate component as source");
+            }
+        } else {
+            // Second click: select target
+            if (component instanceof GateComponent) {
+                GateComponent clickedGate = (GateComponent) component;
+                connectToGate(selectedSource, clickedGate);
+            } else if (component instanceof LEDComponent) {
+                LEDComponent clickedLED = (LEDComponent) component;
+                connectToLED(selectedSource, clickedLED);
+            }
+            
+            // Reset connector mode
+            selectedSource = null;
+            connectorMode = false;
+        }
+    }
+    
+  
+    private void connectToGate(GateComponent source, GateComponent target) {
+        if (source == target) {
+            JOptionPane.showMessageDialog(this, "Cannot connect a gate to itself!");
+            return;
+        }
+        
+        // Ask which input to connect to
+        List<String> availableInputs = new ArrayList<>();
+        if (!target.getInput1().isConnected()) {
+            availableInputs.add("Input 1");
+        }
+        if (target.getInput2() != null && !target.getInput2().isConnected()) {
+            availableInputs.add("Input 2");
+        }
+        
+        if (availableInputs.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "All inputs are already connected!");
+            return;
+        }
+        
+        String[] options = availableInputs.toArray(new String[0]);
+        String selected = (String) JOptionPane.showInputDialog(this,
+            "Select which input to connect to:",
+            "Connect to Input",
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            options,
+            options[0]);
+        
+        if (selected != null) {
+            int inputIndex = selected.equals("Input 1") ? 0 : 1;
+            
+            // Count how many wires already exist from this source (for vertical offset)
+            int wireIndexFromSource = 0;
+            for (WireConnection existingWire : wires) {
+                if (existingWire.getSourceGate() == source) {
+                    wireIndexFromSource++;
+                }
+            }
+            
+            // Create wire connection with canvas reference for routing
+            WireConnection wire = new WireConnection(source, target, inputIndex, this, wireIndexFromSource);
+            wires.add(wire);
+            
+            // Update target input
+            if (inputIndex == 0) {
+                target.getInput1().setSourceComponent(source);
+                target.getInput1().setValue(source.getOutput());
+            } else {
+                target.getInput2().setSourceComponent(source);
+                target.getInput2().setValue(source.getOutput());
+            }
+            
+            // Recalculate target output
+            target.calculateOutput();
+            target.updateImage();
+            
+            repaint();
+            
+            JOptionPane.showMessageDialog(this, 
+                "Connected " + source.getGateType() + " Gate " + source.getComponentId() + 
+                " to " + target.getGateType() + " Gate " + target.getComponentId());
+        }
+    }
+    
+
+    private void connectToLED(GateComponent source, LEDComponent target) {
+        if (target.getInput().isConnected()) {
+            JOptionPane.showMessageDialog(this, "LED input is already connected!");
+            return;
+        }
+        
+        // Count how many wires already exist from this source (for vertical offset)
+        int wireIndexFromSource = 0;
+        for (WireConnection existingWire : wires) {
+            if (existingWire.getSourceGate() == source) {
+                wireIndexFromSource++;
+            }
+        }
+        
+        // Create wire connection with canvas reference for routing
+        WireConnection wire = new WireConnection(source, target, 0, this, wireIndexFromSource);
+        wires.add(wire);
+        
+        // Update LED
+        target.setInputSource(source);
+        target.updateState();
+        
+        repaint();
+        
+        JOptionPane.showMessageDialog(this, 
+            "Connected " + source.getGateType() + " Gate " + source.getComponentId() + 
+            " to LED " + target.getComponentId());
+    }
+    
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Draw all wires
+        for (WireConnection wire : wires) {
+            wire.updatePoints();
+            wire.draw(g2d);
+        }
+        
+        // Find and mark wire crossings with bridge symbols
+        // Track which wires have crossings to vary bridge orientation
+        java.util.Map<Point, Integer> crossingCounts = new java.util.HashMap<>();
+        
+        for (int i = 0; i < wires.size(); i++) {
+            for (int j = i + 1; j < wires.size(); j++) {
+                Point intersection = wires.get(i).findIntersection(wires.get(j));
+                
+                if (intersection != null) {
+                    // Track how many times this point has been crossed
+                    Point key = new Point(intersection.x, intersection.y);
+                    int count = crossingCounts.getOrDefault(key, 0);
+                    crossingCounts.put(key, count + 1);
+                    
+                    // Vary bridge orientation based on crossing count to make multiple crossings visible
+                    boolean useVerticalBridge = (count % 2 == 1);
+                    
+                    // Draw a bridge/jump symbol - semicircular bump showing wire jumping over
+                    // First, erase a small section of the lower wire with white background
+                    g2d.setColor(Color.WHITE);
+                    g2d.setStroke(new BasicStroke(5)); // Slightly thicker to create gap
+                    
+                    if (useVerticalBridge) {
+                        // Vertical gap for odd numbered crossings
+                        g2d.drawLine(intersection.x, intersection.y - 6, 
+                                    intersection.x, intersection.y + 6);
+                    } else {
+                        // Horizontal gap for even numbered crossings
+                        g2d.drawLine(intersection.x - 6, intersection.y, 
+                                    intersection.x + 6, intersection.y);
+                    }
+                    
+                    // Now draw the semicircular bridge for the top wire
+                    g2d.setColor(wires.get(j).getWireColor());
+                    g2d.setStroke(new BasicStroke(2));
+                    
+                    // Draw a semicircular arc (bridge) - orientation varies
+                    int bridgeWidth = 12;
+                    int bridgeHeight = 6;
+                    
+                    if (useVerticalBridge) {
+                        // Vertical bridge (sideways arc) - like ⊃ shape
+                        g2d.drawArc(intersection.x - bridgeHeight, 
+                                   intersection.y - bridgeWidth/2, 
+                                   bridgeHeight * 2, 
+                                   bridgeWidth, 
+                                   90, 180); // Right half of circle
+                    } else {
+                        // Horizontal bridge - like ∩ shape
+                        g2d.drawArc(intersection.x - bridgeWidth/2, 
+                                   intersection.y - bridgeHeight, 
+                                   bridgeWidth, 
+                                   bridgeHeight * 2, 
+                                   0, 180); // Top half of circle
+                    }
+                }
+            }
+        }
+    }
+    
+  
+    public List<GateComponent> getGates() {
+        return gates;
+    }
+    
+  
+    public List<LEDComponent> getLEDs() {
+        return leds;
+    }
+    
+  
+    public List<WireConnection> getWires() {
+        return wires;
+    }
+    
+  
+    public int getComponentCount() {
+        return gates.size() + leds.size();
+    }
+    
+  
+    public List<Integer> getRowYPositions() {
+        return rowYPositions;
+    }
+    
+   
+    public List<Integer> getColumnXPositions() {
+        return columnXPositions;
+    }
+    
+   
+    public List<Integer> getRoutingChannels() {
+        return routingChannels;
+    }
+    
+   
+    public int getGateWidth() {
+        return gateWidth;
+    }
+    
+   
+    public int getGateHeight() {
+        return gateHeight;
+    }
+}

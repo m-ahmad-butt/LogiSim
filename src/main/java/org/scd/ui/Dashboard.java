@@ -32,7 +32,9 @@ public class Dashboard extends JFrame {
 
         setJMenuBar(menuBar);
         
-        setSize(1000, 700);
+        // Make window fullscreen
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
     }
