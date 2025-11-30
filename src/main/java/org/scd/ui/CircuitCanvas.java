@@ -438,6 +438,8 @@ public class CircuitCanvas extends JPanel {
         }
         
         revalidate();
+        service.calculateCircuit();
+        refreshCircuit();
         repaint();
     }
 

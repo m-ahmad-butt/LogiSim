@@ -155,7 +155,12 @@ public class sqlDao implements daoInterface {
         stmt.setString(2, gate.getComponentType());
         stmt.setFloat(3, gate.getPositionX());
         stmt.setFloat(4, gate.getPositionY());
-        stmt.setInt(5, gate.isOutput() ? 1 : 0);
+        
+        if (gate.getOutput() != null) {
+            stmt.setInt(5, gate.getOutput());
+        } else {
+            stmt.setNull(5, java.sql.Types.INTEGER);
+        }
 
         stmt.executeUpdate();
         ResultSet keys = stmt.getGeneratedKeys();
@@ -273,12 +278,15 @@ public class sqlDao implements daoInterface {
             String gateType = rs.getString("component_type");
             float posX = rs.getFloat("positionX");
             float posY = rs.getFloat("positionY");
-            Integer output = rs.getObject("component_output", Integer.class);
+            
+            // Use getInt + wasNull to safely handle NULL values
+            int outputVal = rs.getInt("component_output");
+            Integer output = rs.wasNull() ? null : outputVal;
 
             // Create gate based on type
             Gate gate = createGateByType(gateType, gateId, (int)posX, (int)posY);
             if (gate != null) {
-                gate.setOutput(output != null && output == 1);
+                gate.setOutput(output);
 
                 // Load inputs for this gate
                 List<Input> inputs = loadInputs(gateId);
