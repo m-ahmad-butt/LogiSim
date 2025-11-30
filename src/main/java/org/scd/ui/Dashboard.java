@@ -143,14 +143,40 @@ public class Dashboard extends JFrame {
             "New Project", JOptionPane.YES_NO_OPTION);
             
         if (result == JOptionPane.YES_OPTION) {
-            currentProjectName = null; // Clear project name for new project
+            // Ask for project name FIRST
+            String projectName = null;
+            while (projectName == null || projectName.trim().isEmpty()) {
+                projectName = JOptionPane.showInputDialog(this, 
+                    "Enter new project name:",
+                    "New Project",
+                    JOptionPane.QUESTION_MESSAGE);
+                
+                if (projectName == null) {
+                    // User cancelled, abort operation
+                    return;
+                }
+                
+                if (projectName.trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Project name cannot be empty!",
+                        "Invalid Name", 
+                        JOptionPane.WARNING_MESSAGE);
+                }
+            }
+            
+            // Only proceed if we have a valid name
+            currentProjectName = projectName.trim();
             currentProjectId = 0; // Clear project ID
             circuitService.clearCircuit();
             mainPage.getCircuitCanvas().clearCanvas();
-            mainPage.setProjectName("");
-            setTitle("LogiSum");
-            circuitService.createNewCircuit("New Circuit");
+            mainPage.setProjectName(currentProjectName);
+            setTitle("LogiSum - " + currentProjectName);
+            circuitService.createNewCircuit("Main Circuit");
             mainPage.updateCircuitList(); // Update circuit list after creating new circuit
+            
+            JOptionPane.showMessageDialog(this, 
+                "New project '" + currentProjectName + "' created!",
+                "Project Created", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
