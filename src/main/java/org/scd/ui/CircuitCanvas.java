@@ -221,7 +221,7 @@ public class CircuitCanvas extends JPanel {
         return connectorMode;
     }
     
-  
+   
     public void handleComponentClick(Object component) {
         if (!connectorMode) {
             return;
@@ -247,10 +247,10 @@ public class CircuitCanvas extends JPanel {
                 connectToLED(selectedSource, clickedLED);
             }
             
-            // Reset border and connector mode
+            // Reset border and prepare for next connection
             selectedSource.resetBorder();
             selectedSource = null;
-            connectorMode = false;
+            // Connector mode stays enabled so user can make another connection
         }
     }
     
