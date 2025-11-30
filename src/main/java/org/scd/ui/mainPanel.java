@@ -353,16 +353,31 @@ public class mainPanel extends JPanel {
         StringBuilder displayText = new StringBuilder();
         displayText.append("Truth Table for Circuit:\n\n");
         
-        if (tableData.size() <= 1) {
+        if (tableData.isEmpty()) {
             displayText.append("No components in the circuit.");
         } else {
-            for (String[] row : tableData) {
-                displayText.append(String.format("%-15s %-10s %-15s %-15s %-10s\n",
-                    row[0], row[1], row[2], row[3], row[4]));
-                
-                if (displayText.toString().split("\n").length == 3) {
-                    displayText.append("-".repeat(70)).append("\n");
-                }
+            // Calculate column widths based on header
+            String[] header = tableData.get(0);
+            int numCols = header.length;
+            int colWidth = 15; // Default width
+            
+            // Build format string dynamically
+            StringBuilder formatBuilder = new StringBuilder();
+            for (int i = 0; i < numCols; i++) {
+                formatBuilder.append("%-").append(colWidth).append("s ");
+            }
+            formatBuilder.append("\n");
+            String formatString = formatBuilder.toString();
+            
+            // Print Header
+            displayText.append(String.format(formatString, (Object[])header));
+            
+            // Print Separator
+            displayText.append("-".repeat(numCols * (colWidth + 1))).append("\n");
+            
+            // Print Rows (skip header)
+            for (int i = 1; i < tableData.size(); i++) {
+                displayText.append(String.format(formatString, (Object[])tableData.get(i)));
             }
         }
         
@@ -371,7 +386,7 @@ public class mainPanel extends JPanel {
         textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         
         JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(600, 400));
+        scrollPane.setPreferredSize(new Dimension(800, 500)); // Increased size for larger tables
         
         truthTablePanel.add(scrollPane, BorderLayout.CENTER);
         

@@ -226,37 +226,100 @@ public class CircuitService {
     public List<String[]> generateTruthTable() {
         List<String[]> table = new ArrayList<>();
         
-        // Add header
+        // 1. Identify Circuit Inputs (Unconnected inputs)
+        List<Input> circuitInputs = new ArrayList<>();
+        List<String> inputLabels = new ArrayList<>();
+        
+        for (Gate gate : currentCircuit.getGates()) {
+            // Check Input 1
+            if (gate.getInput1() != null && !gate.getInput1().isConnected()) {
+                circuitInputs.add(gate.getInput1());
+                inputLabels.add(gate.getGateType() + " " + gate.getComponentId() + " In 1");
+            }
+            // Check Input 2
+            if (gate.getInput2() != null && !gate.getInput2().isConnected()) {
+                circuitInputs.add(gate.getInput2());
+                inputLabels.add(gate.getGateType() + " " + gate.getComponentId() + " In 2");
+            }
+        }
+        
+        // 2. Identify Circuit Outputs (LEDs + Gates not acting as sources)
+        List<Object> circuitOutputs = new ArrayList<>(); // Gate or LED
+        List<String> outputLabels = new ArrayList<>();
+        
+        // Find all components that are acting as sources
+        java.util.Set<Integer> sourceComponentIds = new java.util.HashSet<>();
+        for (Connector connector : currentCircuit.getConnectors()) {
+            sourceComponentIds.add(connector.getSourceComponentId());
+        }
+        
+        // Add Gates that are NOT sources as outputs
+        for (Gate gate : currentCircuit.getGates()) {
+            if (!sourceComponentIds.contains(gate.getComponentId())) {
+                circuitOutputs.add(gate);
+                outputLabels.add(gate.getGateType() + " " + gate.getComponentId() + " Out");
+            }
+        }
+        
+        // Add all LEDs as outputs
+        for (LED led : currentCircuit.getLeds()) {
+            circuitOutputs.add(led);
+            outputLabels.add("LED " + led.getComponentId());
+        }
+        
+        // 3. Build Header
         List<String> header = new ArrayList<>();
-        header.add("Component");
-        header.add("Type");
-        header.add("Input 1");
-        header.add("Input 2");
-        header.add("Output");
+        header.addAll(inputLabels);
+        header.addAll(outputLabels);
         table.add(header.toArray(new String[0]));
         
-        // Add gates
-        for (Gate gate : currentCircuit.getGates()) {
+        // 4. Save Current State
+        Map<Input, Integer> savedState = new HashMap<>();
+        for (Input input : circuitInputs) {
+            savedState.put(input, input.getValue());
+        }
+        
+        // 5. Run Simulation
+        int numInputs = circuitInputs.size();
+        int numRows = 1 << numInputs; // 2^n
+        
+        // Limit max rows to prevent hanging on large circuits (e.g., max 10 inputs = 1024 rows)
+        if (numInputs > 10) {
+            numRows = 1024; 
+        }
+        
+        for (int i = 0; i < numRows; i++) {
             List<String> row = new ArrayList<>();
-            row.add(gate.getGateType() + " " + gate.getComponentId());
-            row.add(gate.getGateType());
-            row.add(gate.getInput1().getValue() != null ? gate.getInput1().getValue().toString() : "-");
-            row.add(gate.getInput2() != null && gate.getInput2().getValue() != null ? 
-                   gate.getInput2().getValue().toString() : "-");
-            row.add(gate.getOutput() != null ? gate.getOutput().toString() : "-");
+            
+            // Set Inputs
+            for (int j = 0; j < numInputs; j++) {
+                // Use MSB first for standard truth table order
+                int bit = (i >> (numInputs - 1 - j)) & 1;
+                circuitInputs.get(j).setValue(bit);
+                row.add(String.valueOf(bit));
+            }
+            
+            // Calculate Circuit
+            calculateCircuit();
+            
+            // Read Outputs
+            for (Object outputComponent : circuitOutputs) {
+                if (outputComponent instanceof Gate) {
+                    Integer val = ((Gate) outputComponent).getOutput();
+                    row.add(val != null ? val.toString() : "0");
+                } else if (outputComponent instanceof LED) {
+                    row.add(((LED) outputComponent).isOn() ? "1" : "0");
+                }
+            }
+            
             table.add(row.toArray(new String[0]));
         }
         
-        // Add LEDs
-        for (LED led : currentCircuit.getLeds()) {
-            List<String> row = new ArrayList<>();
-            row.add("LED " + led.getComponentId());
-            row.add("LED");
-            row.add(led.getInput().getValue() != null ? led.getInput().getValue().toString() : "-");
-            row.add("-");
-            row.add(led.isOn() ? "ON" : "OFF");
-            table.add(row.toArray(new String[0]));
+        // 6. Restore State
+        for (Map.Entry<Input, Integer> entry : savedState.entrySet()) {
+            entry.getKey().setValue(entry.getValue());
         }
+        calculateCircuit(); // Recalculate to restore original state
         
         return table;
     }
