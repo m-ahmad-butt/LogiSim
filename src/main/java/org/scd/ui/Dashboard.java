@@ -9,6 +9,8 @@ public class Dashboard extends JFrame {
     private mainPanel mainPage;
     private org.scd.business.service.ProjectService projectService;
     private org.scd.business.service.CircuitService circuitService;
+    private String currentProjectName; // Track current project name
+    private int currentProjectId; // Track current project ID
 
     public Dashboard() {
         projectService = new org.scd.business.service.ProjectService();
@@ -93,10 +95,12 @@ public class Dashboard extends JFrame {
             }
             
             circuitService.createNewCircuit("Main Circuit");
-            setTitle("LogiSum - " + projectName.trim());
-            mainPage.setProjectName(projectName.trim());
+            currentProjectName = projectName.trim(); // Store project name
+            currentProjectId = 0; // New project has no ID yet
+            setTitle("LogiSum - " + currentProjectName);
+            mainPage.setProjectName(currentProjectName);
             JOptionPane.showMessageDialog(this, 
-                "New project '" + projectName.trim() + "' created!\nYou can start designing your circuit.",
+                "New project '" + currentProjectName + "' created!\nYou can start designing your circuit.",
                 "Project Created", JOptionPane.INFORMATION_MESSAGE);
                 
         } else if (choice == 1) { // Load Existing Project
@@ -113,33 +117,53 @@ public class Dashboard extends JFrame {
             "New Project", JOptionPane.YES_NO_OPTION);
             
         if (result == JOptionPane.YES_OPTION) {
+            currentProjectName = null; // Clear project name for new project
+            currentProjectId = 0; // Clear project ID
             circuitService.clearCircuit();
             mainPage.getCircuitCanvas().clearCanvas();
+            mainPage.setProjectName("");
+            setTitle("LogiSum");
             circuitService.createNewCircuit("New Circuit");
         }
     }
 
     private void handleSaveProject() {
-        String projectName = JOptionPane.showInputDialog(this, "Enter Project Name:");
-        if (projectName != null && !projectName.trim().isEmpty()) {
-            org.scd.business.model.Project project = new org.scd.business.model.Project();
-            project.setProject_Name(projectName);
-            
-            // Get current circuit
-            org.scd.business.model.Circuit currentCircuit = circuitService.getCurrentCircuit();
-            if (currentCircuit == null) {
-                currentCircuit = circuitService.createNewCircuit("Main Circuit");
+        String projectName = currentProjectName;
+        
+        // Only ask for project name if we don't have one
+        if (projectName == null || projectName.trim().isEmpty()) {
+            projectName = JOptionPane.showInputDialog(this, "Enter Project Name:");
+            if (projectName == null || projectName.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Project name is required to save!");
+                return;
             }
-            
-            java.util.List<org.scd.business.model.Circuit> circuits = new java.util.ArrayList<>();
-            circuits.add(currentCircuit);
-            project.setCircuits(circuits);
-            
-            if (projectService.saveProject(project)) {
-                JOptionPane.showMessageDialog(this, "Project saved successfully!");
-            } else {
-                JOptionPane.showMessageDialog(this, "Failed to save project.");
+            currentProjectName = projectName.trim();
+            setTitle("LogiSum - " + currentProjectName);
+            mainPage.setProjectName(currentProjectName);
+        }
+        
+        org.scd.business.model.Project project = new org.scd.business.model.Project();
+        project.setProject_Name(currentProjectName);
+        project.setProjectId(currentProjectId); // Set the project ID for UPDATE vs INSERT
+        
+        // Get current circuit
+        org.scd.business.model.Circuit currentCircuit = circuitService.getCurrentCircuit();
+        if (currentCircuit == null) {
+            currentCircuit = circuitService.createNewCircuit("Main Circuit");
+        }
+        
+        java.util.List<org.scd.business.model.Circuit> circuits = new java.util.ArrayList<>();
+        circuits.add(currentCircuit);
+        project.setCircuits(circuits);
+        
+        if (projectService.saveProject(project)) {
+            // Update project ID after first save
+            if (currentProjectId == 0) {
+                currentProjectId = project.getProjectId();
             }
+            JOptionPane.showMessageDialog(this, "Project saved successfully!");
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to save project.");
         }
     }
 
@@ -175,9 +199,11 @@ public class Dashboard extends JFrame {
                     org.scd.business.model.Circuit circuit = loadedProject.getCircuits().get(0);
                     mainPage.getCircuitCanvas().loadCircuit(circuit);
                     
-                    // Update window title with project name
-                    setTitle("LogiSum - " + selectedName);
-                    mainPage.setProjectName(selectedName);
+                    // Update window title and store project name and ID
+                    currentProjectName = selectedName;
+                    currentProjectId = selectedId; // Store the project ID
+                    setTitle("LogiSum - " + currentProjectName);
+                    mainPage.setProjectName(currentProjectName);
                     
                     JOptionPane.showMessageDialog(this, "Project loaded successfully!");
                 } else {

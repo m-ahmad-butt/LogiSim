@@ -41,6 +41,18 @@ public class GateComponent extends JPanel {
         service.registerUIComponent(componentId, this);
         
         initComponent();
+        
+        // Restore input values from the model
+        if (gate.getInput1() != null && gate.getInput1().getValue() != null) {
+            this.input1.setValue(gate.getInput1().getValue());
+        }
+        
+        if (gate.getInput2() != null && gate.getInput2().getValue() != null && this.input2 != null) {
+            this.input2.setValue(gate.getInput2().getValue());
+        }
+        
+        // Update UI to show restored values
+        updateImage();
     }
 
     private void initComponent() {

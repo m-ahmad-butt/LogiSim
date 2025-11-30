@@ -26,18 +26,33 @@ public class sqlDao implements daoInterface {
     public boolean saveProject(Project project) {
         try {
             conn.setAutoCommit(false);
+            
+            int projectId = project.getProjectId();
+            
+            // Check if this is an update or new project
+            if (projectId > 0) {
+                // UPDATE existing project - delete old data first
+                deleteProjectData(projectId);
+                
+                // Update project name
+                String updateProjectSql = "UPDATE Project SET projectName = ? WHERE projectID = ?";
+                PreparedStatement updateStmt = conn.prepareStatement(updateProjectSql);
+                updateStmt.setString(1, project.getProject_Name());
+                updateStmt.setInt(2, projectId);
+                updateStmt.executeUpdate();
+            } else {
+                // INSERT new project
+                String projectSql = "INSERT INTO Project (projectName) VALUES (?)";
+                PreparedStatement projectStmt = conn.prepareStatement(projectSql,
+                        Statement.RETURN_GENERATED_KEYS);
+                projectStmt.setString(1, project.getProject_Name());
+                projectStmt.executeUpdate();
 
-            // 1. Save Project
-            String projectSql = "INSERT INTO Project (projectName) VALUES (?)";
-            PreparedStatement projectStmt = conn.prepareStatement(projectSql,
-                    Statement.RETURN_GENERATED_KEYS);
-            projectStmt.setString(1, project.getProject_Name());
-            projectStmt.executeUpdate();
-
-            ResultSet projectKeys = projectStmt.getGeneratedKeys();
-            int projectId = 0;
-            if (projectKeys.next()) {
-                projectId = projectKeys.getInt(1);
+                ResultSet projectKeys = projectStmt.getGeneratedKeys();
+                if (projectKeys.next()) {
+                    projectId = projectKeys.getInt(1);
+                    project.setProjectId(projectId);
+                }
             }
 
             // 2. Save each Circuit
@@ -87,6 +102,34 @@ public class sqlDao implements daoInterface {
                 e.printStackTrace();
             }
         }
+    }
+    
+    private void deleteProjectData(int projectId) throws SQLException {
+        // Delete in correct order due to foreign keys
+        String deleteConnectorsSql = "DELETE FROM Connector WHERE source_id IN " +
+            "(SELECT component_id FROM Gate WHERE circuit_id IN " +
+            "(SELECT circuitID FROM Circuit WHERE projectID = ?))";
+        PreparedStatement deleteConnStmt = conn.prepareStatement(deleteConnectorsSql);
+        deleteConnStmt.setInt(1, projectId);
+        deleteConnStmt.executeUpdate();
+        
+        String deleteInputsSql = "DELETE FROM Gate_Input WHERE component_id IN " +
+            "(SELECT component_id FROM Gate WHERE circuit_id IN " +
+            "(SELECT circuitID FROM Circuit WHERE projectID = ?))";
+        PreparedStatement deleteInputsStmt = conn.prepareStatement(deleteInputsSql);
+        deleteInputsStmt.setInt(1, projectId);
+        deleteInputsStmt.executeUpdate();
+        
+        String deleteGatesSql = "DELETE FROM Gate WHERE circuit_id IN " +
+            "(SELECT circuitID FROM Circuit WHERE projectID = ?)";
+        PreparedStatement deleteGatesStmt = conn.prepareStatement(deleteGatesSql);
+        deleteGatesStmt.setInt(1, projectId);
+        deleteGatesStmt.executeUpdate();
+        
+        String deleteCircuitsSql = "DELETE FROM Circuit WHERE projectID = ?";
+        PreparedStatement deleteCircuitsStmt = conn.prepareStatement(deleteCircuitsSql);
+        deleteCircuitsStmt.setInt(1, projectId);
+        deleteCircuitsStmt.executeUpdate();
     }
 
     private int saveCircuit(Circuit circuit, int projectId) throws SQLException {
@@ -138,8 +181,8 @@ public class sqlDao implements daoInterface {
 
     private void saveConnector(Connector connector, Map<Gate, Integer> gateIdMap, Circuit circuit)
             throws SQLException {
-        String sql = "INSERT INTO Connector (component_color, source_id, sink_id) " +
-                "VALUES (?, ?, ?)";
+        String sql = "INSERT INTO Connector (component_color, source_id, sink_id, target_input_index) " +
+                "VALUES (?, ?, ?, ?)";
         PreparedStatement stmt = conn.prepareStatement(sql);
 
         // Find the Gate objects using the IDs stored in Connector
@@ -153,6 +196,7 @@ public class sqlDao implements daoInterface {
             stmt.setString(1, connector.getWireColor());
             stmt.setInt(2, sourceId);
             stmt.setInt(3, sinkId);
+            stmt.setInt(4, connector.getTargetInputIndex());
             stmt.executeUpdate();
         }
     }
@@ -175,6 +219,7 @@ public class sqlDao implements daoInterface {
 
             if (projectRs.next()) {
                 project.setProject_Name(projectRs.getString("projectName"));
+                project.setProjectId(projectId); // Set the project ID
             } else {
                 return null; // Project not found
             }
@@ -233,9 +278,6 @@ public class sqlDao implements daoInterface {
             // Create gate based on type
             Gate gate = createGateByType(gateType, gateId, (int)posX, (int)posY);
             if (gate != null) {
-                // gate.setGate_Name(gateType); // Already set in constructor
-                // gate.setPositionX((int)posX); // Already set in constructor
-                // gate.setPositionY((int)posY); // Already set in constructor
                 gate.setOutput(output != null && output == 1);
 
                 // Load inputs for this gate
@@ -286,7 +328,7 @@ public class sqlDao implements daoInterface {
             throws SQLException {
         List<Connector> connectors = new ArrayList<>();
 
-        String sql = "SELECT c.connector_id, c.component_color, c.source_id, c.sink_id " +
+        String sql = "SELECT c.connector_id, c.component_color, c.source_id, c.sink_id, c.target_input_index " +
                 "FROM Connector c " +
                 "INNER JOIN Gate src ON c.source_id = src.component_id " +
                 "WHERE src.circuit_id = ?";
@@ -298,6 +340,7 @@ public class sqlDao implements daoInterface {
             Connector connector = new Connector();
             connector.setWireColor(rs.getString("component_color"));
             connector.setConnectorId(rs.getInt("connector_id"));
+            connector.setTargetInputIndex(rs.getInt("target_input_index"));
 
             int sourceId = rs.getInt("source_id");
             int sinkId = rs.getInt("sink_id");

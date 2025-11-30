@@ -81,6 +81,7 @@ public class sqlSetup {
                     "component_color TEXT, " +
                     "source_id INTEGER, " +
                     "sink_id INTEGER, " +
+                    "target_input_index INTEGER DEFAULT 0, " +
                     "FOREIGN KEY(source_id) REFERENCES Gate(component_id) ON DELETE CASCADE, " +
                     "FOREIGN KEY(sink_id) REFERENCES Gate(component_id) ON DELETE CASCADE)");
             
