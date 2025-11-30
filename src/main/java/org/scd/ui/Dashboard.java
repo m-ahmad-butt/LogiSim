@@ -51,6 +51,60 @@ public class Dashboard extends JFrame {
         setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
+        
+        // Show startup dialog after window is visible
+        SwingUtilities.invokeLater(() -> showStartupDialog());
+    }
+
+    private void showStartupDialog() {
+        String[] options = {"Create New Project", "Load Existing Project"};
+        int choice = JOptionPane.showOptionDialog(
+            this,
+            "Welcome to LogiSum Circuit Designer!\nWhat would you like to do?",
+            "LogiSum - Startup",
+            JOptionPane.DEFAULT_OPTION,
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            options,
+            options[0]
+        );
+        
+        if (choice == 0) { // Create New Project
+            // Keep asking until user provides a valid name or cancels
+            String projectName = null;
+            while (projectName == null || projectName.trim().isEmpty()) {
+                projectName = JOptionPane.showInputDialog(this, 
+                    "Enter new project name (required):",
+                    "New Project",
+                    JOptionPane.QUESTION_MESSAGE);
+                
+                if (projectName == null) {
+                    // User cancelled, ask again if they want to create or load
+                    showStartupDialog();
+                    return;
+                }
+                
+                if (projectName.trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Project name cannot be empty!",
+                        "Invalid Name", 
+                        JOptionPane.WARNING_MESSAGE);
+                }
+            }
+            
+            circuitService.createNewCircuit("Main Circuit");
+            setTitle("LogiSum - " + projectName.trim());
+            mainPage.setProjectName(projectName.trim());
+            JOptionPane.showMessageDialog(this, 
+                "New project '" + projectName.trim() + "' created!\nYou can start designing your circuit.",
+                "Project Created", JOptionPane.INFORMATION_MESSAGE);
+                
+        } else if (choice == 1) { // Load Existing Project
+            handleLoadProject();
+        } else {
+            // User closed dialog without choosing, default to create new
+            showStartupDialog();
+        }
     }
 
     private void handleNewProject() {
@@ -120,6 +174,11 @@ public class Dashboard extends JFrame {
                     // Load the first circuit for now
                     org.scd.business.model.Circuit circuit = loadedProject.getCircuits().get(0);
                     mainPage.getCircuitCanvas().loadCircuit(circuit);
+                    
+                    // Update window title with project name
+                    setTitle("LogiSum - " + selectedName);
+                    mainPage.setProjectName(selectedName);
+                    
                     JOptionPane.showMessageDialog(this, "Project loaded successfully!");
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to load project or project is empty.");

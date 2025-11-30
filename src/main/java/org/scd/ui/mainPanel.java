@@ -9,6 +9,7 @@ public class mainPanel extends JPanel {
     private CircuitService service; 
     private CircuitCanvas circuitCanvas;
     private JLabel circuitCount;
+    private JLabel projectName;
     
     public mainPanel() {
         this.service = CircuitService.getInstance();
@@ -36,7 +37,7 @@ public class mainPanel extends JPanel {
        JButton simulateBtn = new JButton("Simulate");
        JButton analyzeBtn = new JButton("Analyze");
        JLabel projectTitle = new JLabel("Project Name: ");
-       JLabel projectName = new JLabel("");
+       projectName = new JLabel("");
        upperRightPanel.add(simulateBtn);
        upperRightPanel.add(analyzeBtn);
        upperRightPanel.add(projectTitle);
@@ -159,5 +160,9 @@ public class mainPanel extends JPanel {
 
     public CircuitCanvas getCircuitCanvas() {
         return circuitCanvas;
+    }
+    
+    public void setProjectName(String name) {
+        projectName.setText(name);
     }
 }
