@@ -42,6 +42,7 @@ public class Dashboard extends JFrame {
         newMenuItem.addActionListener(e -> handleNewProject());
         saveMenuItem.addActionListener(e -> handleSaveProject());
         loadMenuItem.addActionListener(e -> handleLoadProject());
+        exportMenuItem.addActionListener(e -> handleExportCanvas());
 
         setJMenuBar(menuBar);
         
@@ -123,6 +124,33 @@ public class Dashboard extends JFrame {
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to load project or project is empty.");
                 }
+            }
+        }
+    }
+
+    private void handleExportCanvas() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Export Circuit as PNG");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNG Image", "png"));
+        
+        int userSelection = fileChooser.showSaveDialog(this);
+        
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+            
+            // Ensure .png extension
+            String filePath = fileToSave.getAbsolutePath();
+            if (!filePath.toLowerCase().endsWith(".png")) {
+                fileToSave = new java.io.File(filePath + ".png");
+            }
+            
+            try {
+                mainPage.getCircuitCanvas().exportToPNG(fileToSave);
+                JOptionPane.showMessageDialog(this, "Circuit exported successfully to:\n" + fileToSave.getAbsolutePath());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Failed to export circuit: " + ex.getMessage(), 
+                    "Export Error", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
             }
         }
     }

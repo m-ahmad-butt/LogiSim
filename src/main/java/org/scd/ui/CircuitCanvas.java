@@ -505,8 +505,130 @@ public class CircuitCanvas extends JPanel {
         return gateWidth;
     }
     
-   
     public int getGateHeight() {
         return gateHeight;
+    }
+
+    /**
+     * Exports the entire circuit canvas to a PNG file.
+     * Captures all components regardless of current scroll position.
+     */
+    public void exportToPNG(java.io.File file) throws java.io.IOException {
+        // Calculate the actual bounds needed to capture all components
+        int maxX = 0;
+        int maxY = 0;
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        
+        // Find bounds from gates
+        for (GateComponent gate : gates) {
+            minX = Math.min(minX, gate.getX());
+            minY = Math.min(minY, gate.getY());
+            maxX = Math.max(maxX, gate.getX() + gate.getWidth());
+            maxY = Math.max(maxY, gate.getY() + gate.getHeight());
+        }
+        
+        // Find bounds from LEDs
+        for (LEDComponent led : leds) {
+            minX = Math.min(minX, led.getX());
+            minY = Math.min(minY, led.getY());
+            maxX = Math.max(maxX, led.getX() + led.getWidth());
+            maxY = Math.max(maxY, led.getY() + led.getHeight());
+        }
+        
+        // If no components, use default size
+        if (gates.isEmpty() && leds.isEmpty()) {
+            minX = 0;
+            minY = 0;
+            maxX = 800;
+            maxY = 600;
+        }
+        
+        // Add padding
+        int padding = 50;
+        minX = Math.max(0, minX - padding);
+        minY = Math.max(0, minY - padding);
+        maxX += padding;
+        maxY += padding;
+        
+        int width = maxX - minX;
+        int height = maxY - minY;
+        
+        // Create buffered image with the calculated dimensions
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(
+            width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        
+        Graphics2D g2d = image.createGraphics();
+        
+        // Set rendering hints for better quality
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        
+        // Fill background
+        g2d.setColor(Color.WHITE);
+        g2d.fillRect(0, 0, width, height);
+        
+        // Translate to account for offset
+        g2d.translate(-minX, -minY);
+        
+        // Draw wires first (so they appear behind components)
+        for (WireConnection wire : wires) {
+            wire.updatePoints();
+            wire.draw(g2d);
+        }
+        
+        // Draw wire crossings
+        java.util.Map<Point, Integer> crossingCounts = new java.util.HashMap<>();
+        for (int i = 0; i < wires.size(); i++) {
+            for (int j = i + 1; j < wires.size(); j++) {
+                Point intersection = wires.get(i).findIntersection(wires.get(j));
+                if (intersection != null) {
+                    Point key = new Point(intersection.x, intersection.y);
+                    int count = crossingCounts.getOrDefault(key, 0);
+                    crossingCounts.put(key, count + 1);
+                    boolean useVerticalBridge = (count % 2 == 1);
+                    
+                    g2d.setColor(Color.WHITE);
+                    g2d.setStroke(new BasicStroke(5));
+                    if (useVerticalBridge) {
+                        g2d.drawLine(intersection.x, intersection.y - 6, intersection.x, intersection.y + 6);
+                    } else {
+                        g2d.drawLine(intersection.x - 6, intersection.y, intersection.x + 6, intersection.y);
+                    }
+                    
+                    g2d.setColor(wires.get(j).getWireColor());
+                    g2d.setStroke(new BasicStroke(2));
+                    int bridgeWidth = 12;
+                    int bridgeHeight = 6;
+                    if (useVerticalBridge) {
+                        g2d.drawArc(intersection.x - bridgeHeight, intersection.y - bridgeWidth/2, 
+                            bridgeHeight * 2, bridgeWidth, 90, 180);
+                    } else {
+                        g2d.drawArc(intersection.x - bridgeWidth/2, intersection.y - bridgeHeight, 
+                            bridgeWidth, bridgeHeight * 2, 0, 180);
+                    }
+                }
+            }
+        }
+        
+        // Draw gate components
+        for (GateComponent gate : gates) {
+            g2d.translate(gate.getX(), gate.getY());
+            gate.paint(g2d);
+            g2d.translate(-gate.getX(), -gate.getY());
+        }
+        
+        // Draw LED components
+        for (LEDComponent led : leds) {
+            g2d.translate(led.getX(), led.getY());
+            led.paint(g2d);
+            g2d.translate(-led.getX(), -led.getY());
+        }
+        
+        g2d.dispose();
+        
+        // Write to file
+        javax.imageio.ImageIO.write(image, "PNG", file);
     }
 }
