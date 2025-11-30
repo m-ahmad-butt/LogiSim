@@ -321,17 +321,34 @@ public class CircuitCanvas extends JPanel {
         clearCanvas();
         service.setCurrentCircuit(circuit);
         
+        // Track maximum row and column seen
+        int maxRow = 0;
+        int maxColumn = 0;
+        
         // Load Gates
         for (Gate gate : circuit.getGates()) {
             GateComponent gc = new GateComponent(gate);
             gates.add(gc);
             add(gc);
             
-            // Update layout tracking
-            int r = gate.getRow();
-            int c = gate.getColumn();
-            currentRow = Math.max(currentRow, r);
-            // We assume gates are loaded in order or we just trust the stored positions
+            // Calculate row and column from position
+            int x = gate.getPositionX();
+            int y = gate.getPositionY();
+            
+            // Reverse calculate row and column from position
+            int col = (x - currentX + (horizontalSpacing / 2)) / (gateWidth + horizontalSpacing);
+            int row = (y - currentY + (verticalSpacing / 2)) / (gateHeight + verticalSpacing);
+            
+            // Ensure non-negative
+            col = Math.max(0, col);
+            row = Math.max(0, row);
+            
+            // Set row/column on the gate component
+            gc.setRowColumn(row, col);
+            
+            // Update max values
+            maxRow = Math.max(maxRow, row);
+            maxColumn = Math.max(maxColumn, col);
         }
         
         // Load LEDs
@@ -339,6 +356,43 @@ public class CircuitCanvas extends JPanel {
             LEDComponent lc = new LEDComponent(led);
             leds.add(lc);
             add(lc);
+            
+            // Calculate row and column from position
+            int x = (int) led.getPositionX();
+            int y = (int) led.getPositionY();
+            
+            int col = (x - currentX + (horizontalSpacing / 2)) / (gateWidth + horizontalSpacing);
+            int row = (y - currentY + (verticalSpacing / 2)) / (gateHeight + verticalSpacing);
+            
+            col = Math.max(0, col);
+            row = Math.max(0, row);
+            
+            lc.setRowColumn(row, col);
+            
+            maxRow = Math.max(maxRow, row);
+            maxColumn = Math.max(maxColumn, col);
+        }
+        
+        // Update layout tracking variables
+        currentRow = maxRow;
+        currentColumn = maxColumn + 1;
+        if (currentColumn >= maxColumns) {
+            currentColumn = 0;
+            currentRow++;
+        }
+        
+        // Rebuild rowYPositions and routingChannels based on loaded components
+        rowYPositions.clear();
+        routingChannels.clear();
+        for (int r = 0; r <= maxRow; r++) {
+            int rowY = currentY + (r * (gateHeight + verticalSpacing));
+            rowYPositions.add(rowY);
+            
+            if (r > 0) {
+                int previousRowY = currentY + ((r - 1) * (gateHeight + verticalSpacing));
+                int channelY = previousRowY + gateHeight + (verticalSpacing / 2);
+                routingChannels.add(channelY);
+            }
         }
         
         // Load Connectors/Wires
