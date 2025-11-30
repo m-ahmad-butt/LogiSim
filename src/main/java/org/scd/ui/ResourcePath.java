@@ -39,11 +39,11 @@ public class ResourcePath {
     
     // LED image paths
     public String getLedOff() {
-        return ledBasePath + "off.png";
+        return ledBasePath + "led_off.png";
     }
     
     public String getLedOn() {
-        return ledBasePath + "on.png";
+        return ledBasePath + "led_on.png";
     }
     
     public void setGatesBasePath(String path) {
