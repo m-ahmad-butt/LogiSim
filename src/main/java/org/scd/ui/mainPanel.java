@@ -76,10 +76,26 @@ public class mainPanel extends JPanel {
         simulateBtn.addActionListener(e -> showSimulationDialog());
         analyzeBtn.addActionListener(e -> showTruthTable());
         
+        //circuits list panel - full height
+        JPanel sideBtnsPanel  = new JPanel(new BorderLayout());
+        
+        // Add scroll pane for circuits list
+        JPanel circuitsListPanel = new JPanel();
+        circuitsListPanel.setLayout(new BoxLayout(circuitsListPanel, BoxLayout.Y_AXIS));
+        circuitsListPanel.setBackground(Color.WHITE);
+        
+        JScrollPane circuitsScrollPane = new JScrollPane(circuitsListPanel);
+        circuitsScrollPane.setPreferredSize(new Dimension(200, 0));
+        circuitsScrollPane.setMinimumSize(new Dimension(200, 0));
+        circuitsScrollPane.setBorder(BorderFactory.createTitledBorder("Circuits"));
+        
+        sideBtnsPanel.add(circuitsScrollPane, BorderLayout.CENTER);
+
         // Add all panels to mainPanel
         add(upperPanel, BorderLayout.NORTH);
         add(centerPanel, BorderLayout.CENTER);
         add(bottomPanel, BorderLayout.SOUTH);
+        add(sideBtnsPanel, BorderLayout.EAST);
     }
     
   
