@@ -43,8 +43,10 @@ public class Dashboard extends JFrame {
         // Circuit menu
         JMenu circuitMenu = new JMenu("Circuit");
         JMenuItem newCircuitMenuItem = new JMenuItem("New");
+        JMenuItem deleteCircuitMenuItem = new JMenuItem("Delete");
         
         circuitMenu.add(newCircuitMenuItem);
+        circuitMenu.add(deleteCircuitMenuItem);
         
         menuBar.add(circuitMenu);
 
@@ -54,6 +56,7 @@ public class Dashboard extends JFrame {
         loadMenuItem.addActionListener(e -> handleLoadProject());
         exportMenuItem.addActionListener(e -> handleExportCanvas());
         newCircuitMenuItem.addActionListener(e -> handleNewCircuit());
+        deleteCircuitMenuItem.addActionListener(e -> handleDeleteCircuit());
 
         setJMenuBar(menuBar);
         
@@ -335,6 +338,55 @@ public class Dashboard extends JFrame {
             "Circuit '" + circuitName.trim() + "' created successfully!",
             "Circuit Created", 
             JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    private void handleDeleteCircuit() {
+        org.scd.business.model.Circuit currentCircuit = circuitService.getCurrentCircuit();
+        
+        if (currentCircuit == null) {
+            return;
+        }
+        
+        // Check if it's the main circuit (first one in list)
+        java.util.List<org.scd.business.model.Circuit> allCircuits = circuitService.getAllCircuits();
+        if (!allCircuits.isEmpty() && allCircuits.get(0).getCircuitId() == currentCircuit.getCircuitId()) {
+            JOptionPane.showMessageDialog(this, 
+                "Cannot delete the Main Circuit!", 
+                "Delete Failed", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to delete circuit '" + currentCircuit.getCircuitName() + "'?\nThis action cannot be undone.",
+            "Delete Circuit",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+            
+        if (confirm == JOptionPane.YES_OPTION) {
+            boolean deleted = circuitService.deleteCircuit(currentCircuit.getCircuitId());
+            
+            if (deleted) {
+                // Service automatically switches current circuit to main if current was deleted
+                org.scd.business.model.Circuit newCurrent = circuitService.getCurrentCircuit();
+                
+                // Reload canvas with new current circuit
+                mainPage.getCircuitCanvas().loadCircuit(newCurrent);
+                
+                // Update UI list
+                mainPage.updateCircuitList();
+                
+                JOptionPane.showMessageDialog(this,
+                    "Circuit deleted successfully.",
+                    "Delete Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Failed to delete circuit.",
+                    "Delete Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
 }

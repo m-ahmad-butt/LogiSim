@@ -565,7 +565,26 @@ public class CircuitService {
     }
     
    
-    public void deleteCircuit(int circuitId) {
-         //krlo yar
+    public boolean deleteCircuit(int circuitId) {
+        // Prevent deleting the first circuit (Main Circuit)
+        if (allCircuits.isEmpty()) return false;
+        
+        Circuit mainCircuit = allCircuits.get(0);
+        if (mainCircuit.getCircuitId() == circuitId) {
+            return false; // Cannot delete main circuit
+        }
+        
+        // Find and remove the circuit
+        boolean removed = allCircuits.removeIf(c -> c.getCircuitId() == circuitId);
+        
+        if (removed) {
+            // If we deleted the current circuit, switch to the main circuit
+            if (currentCircuit.getCircuitId() == circuitId) {
+                currentCircuit = allCircuits.get(0);
+            }
+            return true;
+        }
+        
+        return false;
     }
 }
