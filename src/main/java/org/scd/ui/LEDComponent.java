@@ -28,11 +28,28 @@ public class LEDComponent extends JLabel {
         this.componentId = service.getLEDComponentId(service.addLED(x, y));
         service.registerUIComponent(this.componentId, this);
         
+        initComponent();
+    }
+
+    public LEDComponent(org.scd.business.model.LED led) {
+        this.service = CircuitService.getInstance();
+        this.positionX = led.getPositionX();
+        this.positionY = led.getPositionY();
+        this.input = new ComponentInput(0);
+        this.isOn = led.isOn();
+        
+        this.componentId = led.getComponentId();
+        service.registerUIComponent(this.componentId, this);
+        
+        initComponent();
+    }
+
+    private void initComponent() {
         // Load default OFF image
-        loadImage(false);
+        loadImage(isOn);
         
         // Set bounds
-        setBounds(x, y, 60, 60);
+        setBounds(positionX, positionY, 60, 60);
         setHorizontalAlignment(SwingConstants.CENTER);
         
         // Make the component opaque with white background

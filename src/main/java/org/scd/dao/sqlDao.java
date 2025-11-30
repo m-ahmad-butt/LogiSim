@@ -63,7 +63,7 @@ public class sqlDao implements daoInterface {
                     // 5. Save Connectors after all gates are saved
                     if (circuit.getConnectors() != null) {
                         for (Connector connector : circuit.getConnectors()) {
-                            saveConnector(connector, gateIdMap);
+                            saveConnector(connector, gateIdMap, circuit);
                         }
                     }
                 }
@@ -93,7 +93,7 @@ public class sqlDao implements daoInterface {
         String sql = "INSERT INTO Circuit (projectID, circuitName) VALUES (?, ?)";
         PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
         stmt.setInt(1, projectId);
-        stmt.setString(2, circuit.getCircuit_Name());
+        stmt.setString(2, circuit.getCircuitName());
         stmt.executeUpdate();
 
         ResultSet keys = stmt.getGeneratedKeys();
@@ -109,9 +109,9 @@ public class sqlDao implements daoInterface {
         PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 
         stmt.setInt(1, circuitId);
-        stmt.setString(2, gate.getGate_Name());
-        stmt.setFloat(3, gate.getPosition_X());
-        stmt.setFloat(4, gate.getPosition_Y());
+        stmt.setString(2, gate.getComponentType());
+        stmt.setFloat(3, gate.getPositionX());
+        stmt.setFloat(4, gate.getPositionY());
         stmt.setInt(5, gate.isOutput() ? 1 : 0);
 
         stmt.executeUpdate();
@@ -129,24 +129,28 @@ public class sqlDao implements daoInterface {
 
         for (Input input : inputs) {
             stmt.setInt(1, gateId);
-            stmt.setString(2, input.getInput_Value());
-            stmt.setString(3, input.getInput_Order());
+            stmt.setString(2, input.getValue() != null ? String.valueOf(input.getValue()) : null);
+            stmt.setString(3, String.valueOf(input.getInputIndex()));
             stmt.addBatch();
         }
         stmt.executeBatch();
     }
 
-    private void saveConnector(Connector connector, Map<Gate, Integer> gateIdMap)
+    private void saveConnector(Connector connector, Map<Gate, Integer> gateIdMap, Circuit circuit)
             throws SQLException {
         String sql = "INSERT INTO Connector (component_color, source_id, sink_id) " +
                 "VALUES (?, ?, ?)";
         PreparedStatement stmt = conn.prepareStatement(sql);
 
-        Integer sourceId = gateIdMap.get(connector.getSource_Gate());
-        Integer sinkId = gateIdMap.get(connector.getSink_Gate());
+        // Find the Gate objects using the IDs stored in Connector
+        Gate sourceGate = circuit.findGateById(connector.getSourceComponentId());
+        Gate sinkGate = circuit.findGateById(connector.getTargetComponentId());
+
+        Integer sourceId = gateIdMap.get(sourceGate);
+        Integer sinkId = gateIdMap.get(sinkGate);
 
         if (sourceId != null && sinkId != null) {
-            stmt.setString(1, connector.getConnector_Color());
+            stmt.setString(1, connector.getWireColor());
             stmt.setInt(2, sourceId);
             stmt.setInt(3, sinkId);
             stmt.executeUpdate();
@@ -184,7 +188,7 @@ public class sqlDao implements daoInterface {
 
             while (circuitRs.next()) {
                 Circuit circuit = new Circuit();
-                circuit.setCircuit_Name(circuitRs.getString("circuitName"));
+                circuit.setCircuitName(circuitRs.getString("circuitName"));
                 int circuitId = circuitRs.getInt("circuitID");
 
                 // 3. Load Gates and build gateMap
@@ -227,11 +231,11 @@ public class sqlDao implements daoInterface {
             Integer output = rs.getObject("component_output", Integer.class);
 
             // Create gate based on type
-            Gate gate = createGateByType(gateType);
+            Gate gate = createGateByType(gateType, gateId, (int)posX, (int)posY);
             if (gate != null) {
-                gate.setGate_Name(gateType);
-                gate.setPosition_X(posX);
-                gate.setPosition_Y(posY);
+                // gate.setGate_Name(gateType); // Already set in constructor
+                // gate.setPositionX((int)posX); // Already set in constructor
+                // gate.setPositionY((int)posY); // Already set in constructor
                 gate.setOutput(output != null && output == 1);
 
                 // Load inputs for this gate
@@ -256,8 +260,22 @@ public class sqlDao implements daoInterface {
 
         while (rs.next()) {
             Input input = new Input();
-            input.setInput_Value(rs.getString("input_value"));
-            input.setInput_Order(rs.getString("input_order"));
+            String valStr = rs.getString("input_value");
+            if (valStr != null && !valStr.equals("null")) {
+                try {
+                    input.setValue(Integer.parseInt(valStr));
+                } catch (NumberFormatException e) {
+                    // ignore or set null
+                }
+            }
+            
+            String orderStr = rs.getString("input_order");
+            try {
+                 input.setInputIndex(Integer.parseInt(orderStr));
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+            
             inputs.add(input);
         }
 
@@ -278,7 +296,8 @@ public class sqlDao implements daoInterface {
 
         while (rs.next()) {
             Connector connector = new Connector();
-            connector.setConnector_Color(rs.getString("component_color"));
+            connector.setWireColor(rs.getString("component_color"));
+            connector.setConnectorId(rs.getInt("connector_id"));
 
             int sourceId = rs.getInt("source_id");
             int sinkId = rs.getInt("sink_id");
@@ -287,8 +306,8 @@ public class sqlDao implements daoInterface {
             Gate sinkGate = gateMap.get(sinkId);
 
             if (sourceGate != null && sinkGate != null) {
-                connector.setSource_Gate(sourceGate);
-                connector.setSink_Gate(sinkGate);
+                connector.setSourceComponentId(sourceGate.getComponentId());
+                connector.setTargetComponentId(sinkGate.getComponentId());
                 connectors.add(connector);
             }
         }
@@ -296,14 +315,29 @@ public class sqlDao implements daoInterface {
         return connectors;
     }
 
-    private Gate createGateByType(String type) {
+    private Gate createGateByType(String type, int id, int x, int y) {
         Gate result = switch (type) {
-            case "And" -> new And();
-            case "Or" -> new Or();
-            case "Not" -> new Not();
+            case "AND" -> new And(id, x, y);
+            case "OR" -> new Or(id, x, y);
+            case "NOT" -> new Not(id, x, y);
             default -> null;
         };
         return result;
+    }
+
+    @Override
+    public Map<Integer, String> getProjectList() {
+        Map<Integer, String> projects = new HashMap<>();
+        String sql = "SELECT projectID, projectName FROM Project";
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                projects.put(rs.getInt("projectID"), rs.getString("projectName"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return projects;
     }
 
 }

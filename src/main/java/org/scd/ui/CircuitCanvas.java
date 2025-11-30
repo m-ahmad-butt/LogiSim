@@ -1,6 +1,10 @@
 package org.scd.ui;
 
-// import org.scd.business.service.CircuitService;
+import org.scd.business.model.Circuit;
+import org.scd.business.model.Connector;
+import org.scd.business.model.Gate;
+import org.scd.business.model.LED;
+import org.scd.business.service.CircuitService;
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
@@ -8,7 +12,7 @@ import java.util.List;
 
 
 public class CircuitCanvas extends JPanel {
-    // private CircuitService service; 
+    private CircuitService service; 
     private List<GateComponent> gates;
     private List<LEDComponent> leds;
     private List<WireConnection> wires;
@@ -34,7 +38,7 @@ public class CircuitCanvas extends JPanel {
     private GateComponent selectedSource = null;
     
     public CircuitCanvas() {
-        // this.service = CircuitService.getInstance();
+        this.service = CircuitService.getInstance();
         gates = new ArrayList<>();
         leds = new ArrayList<>();
         wires = new ArrayList<>();
@@ -243,6 +247,10 @@ public class CircuitCanvas extends JPanel {
                 target.getInput2().setValue(source.getOutput());
             }
             
+            // Sync with Model
+            service.addConnector(source.getComponentId(), target.getComponentId(), inputIndex, 
+                    String.format("#%02x%02x%02x", wire.getWireColor().getRed(), wire.getWireColor().getGreen(), wire.getWireColor().getBlue()));
+
             // Recalculate target output
             target.calculateOutput();
             target.updateImage();
@@ -255,7 +263,7 @@ public class CircuitCanvas extends JPanel {
         }
     }
     
-
+ 
     private void connectToLED(GateComponent source, LEDComponent target) {
         if (target.getInput().isConnected()) {
             JOptionPane.showMessageDialog(this, "LED input is already connected!");
@@ -278,6 +286,10 @@ public class CircuitCanvas extends JPanel {
         target.setInputSource(source);
         target.updateState();
         
+        // Sync with Model
+        service.addConnector(source.getComponentId(), target.getComponentId(), 0, 
+                String.format("#%02x%02x%02x", wire.getWireColor().getRed(), wire.getWireColor().getGreen(), wire.getWireColor().getBlue()));
+
         repaint();
         
         JOptionPane.showMessageDialog(this, 
@@ -285,6 +297,102 @@ public class CircuitCanvas extends JPanel {
             " to LED " + target.getComponentId());
     }
     
+    public void clearCanvas() {
+        removeAll();
+        gates.clear();
+        leds.clear();
+        wires.clear();
+        
+        // Reset layout
+        currentColumn = 0;
+        currentRow = 0;
+        rowYPositions.clear();
+        columnXPositions.clear();
+        routingChannels.clear();
+        rowYPositions.add(currentY);
+        for (int i = 0; i < maxColumns; i++) {
+            columnXPositions.add(currentX + (i * (gateWidth + horizontalSpacing)));
+        }
+        
+        repaint();
+    }
+
+    public void loadCircuit(Circuit circuit) {
+        clearCanvas();
+        service.setCurrentCircuit(circuit);
+        
+        // Load Gates
+        for (Gate gate : circuit.getGates()) {
+            GateComponent gc = new GateComponent(gate);
+            gates.add(gc);
+            add(gc);
+            
+            // Update layout tracking
+            int r = gate.getRow();
+            int c = gate.getColumn();
+            currentRow = Math.max(currentRow, r);
+            // We assume gates are loaded in order or we just trust the stored positions
+        }
+        
+        // Load LEDs
+        for (LED led : circuit.getLeds()) {
+            LEDComponent lc = new LEDComponent(led);
+            leds.add(lc);
+            add(lc);
+        }
+        
+        // Load Connectors/Wires
+        for (Connector conn : circuit.getConnectors()) {
+            GateComponent source = findGateComponent(conn.getSourceComponentId());
+            Object target = findComponent(conn.getTargetComponentId());
+            
+            if (source != null && target != null) {
+                 // Count how many wires already exist from this source (for vertical offset)
+                int wireIndexFromSource = 0;
+                for (WireConnection existingWire : wires) {
+                    if (existingWire.getSourceGate() == source) {
+                        wireIndexFromSource++;
+                    }
+                }
+                
+                WireConnection wire = new WireConnection(source, target, conn.getTargetInputIndex(), this, wireIndexFromSource);
+                wires.add(wire);
+                
+                // Update UI connections
+                if (target instanceof GateComponent) {
+                    GateComponent targetGate = (GateComponent) target;
+                    if (conn.getTargetInputIndex() == 0) {
+                        targetGate.getInput1().setSourceComponent(source);
+                    } else {
+                        targetGate.getInput2().setSourceComponent(source);
+                    }
+                } else if (target instanceof LEDComponent) {
+                    LEDComponent targetLED = (LEDComponent) target;
+                    targetLED.setInputSource(source);
+                }
+            }
+        }
+        
+        revalidate();
+        repaint();
+    }
+
+    private GateComponent findGateComponent(int id) {
+        for (GateComponent gc : gates) {
+            if (gc.getComponentId() == id) return gc;
+        }
+        return null;
+    }
+
+    private Object findComponent(int id) {
+        GateComponent gc = findGateComponent(id);
+        if (gc != null) return gc;
+        for (LEDComponent lc : leds) {
+            if (lc.getComponentId() == id) return lc;
+        }
+        return null;
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);

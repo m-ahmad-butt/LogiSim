@@ -1,7 +1,7 @@
 -- Projects table
 CREATE TABLE Project (
                          projectID INTEGER PRIMARY KEY AUTOINCREMENT,
-                         projectName TEX3T NOT NULL
+                         projectName TEXT NOT NULL
 );
 
 -- Circuits table

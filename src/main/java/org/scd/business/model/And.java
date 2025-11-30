@@ -3,6 +3,10 @@ package org.scd.business.model;
 
 public class And extends Gate {
     
+    public And() {
+        super(0, "AND", 2, 0, 0);
+    }
+
     public And(int componentId, int positionX, int positionY) {
         super(componentId, "AND", 2, positionX, positionY);
     }

@@ -156,4 +156,8 @@ public class mainPanel extends JPanel {
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }
+
+    public CircuitCanvas getCircuitCanvas() {
+        return circuitCanvas;
+    }
 }

@@ -32,6 +32,18 @@ public class GateComponent extends JPanel {
         this.componentId = service.addGate(gateType, x, y).getComponentId();
         service.registerUIComponent(componentId, this);
         
+        initComponent();
+    }
+
+    public GateComponent(org.scd.business.model.Gate gate) {
+        this.service = CircuitService.getInstance();
+        this.componentId = gate.getComponentId();
+        service.registerUIComponent(componentId, this);
+        
+        initComponent();
+    }
+
+    private void initComponent() {
         // Initialize UI helpers for inputs
         this.input1 = new ComponentInput(0);
         if (!service.getGateType(componentId).equals("NOT")) {

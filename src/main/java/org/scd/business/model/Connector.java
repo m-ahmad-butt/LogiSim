@@ -12,6 +12,8 @@ public class Connector implements Serializable {
     private int targetInputIndex; // 0 for input1, 1 for input2
     private String wireColor; 
     
+    public Connector() {}
+
     public Connector(int connectorId, int sourceComponentId, int targetComponentId, 
                      int targetInputIndex, String wireColor) {
         this.connectorId = connectorId;

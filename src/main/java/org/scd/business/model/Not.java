@@ -3,6 +3,10 @@ package org.scd.business.model;
 
 public class Not extends Gate {
     
+    public Not() {
+        super(0, "NOT", 1, 0, 0);
+    }
+
     public Not(int componentId, int positionX, int positionY) {
         super(componentId, "NOT", 1, positionX, positionY);
     }

@@ -18,6 +18,8 @@ public abstract class Gate implements Component, Serializable {
     protected Input input2; // null for single-input gates like NOT
     protected Integer output;
     
+    public Gate() {}
+
     public Gate(int componentId, String gateType, int numInputs, int positionX, int positionY) {
         this.componentId = componentId;
         this.gateType = gateType;
@@ -31,6 +33,33 @@ public abstract class Gate implements Component, Serializable {
         }
     }
     
+    public java.util.List<Input> getInputs() {
+        java.util.List<Input> inputs = new java.util.ArrayList<>();
+        if (input1 != null) inputs.add(input1);
+        if (input2 != null) inputs.add(input2);
+        return inputs;
+    }
+    
+    public void setInputs(java.util.List<Input> inputs) {
+        if (inputs == null) return;
+        for (Input input : inputs) {
+            if (input.getInputIndex() == 0) this.input1 = input;
+            else if (input.getInputIndex() == 1) this.input2 = input;
+        }
+    }
+
+    public boolean isOutput() {
+        return output != null && output == 1;
+    }
+
+    public void setGate_Name(String gateName) {
+        this.gateType = gateName;
+    }
+    
+    public String getGate_Name() {
+        return gateType;
+    }
+
     @Override
     public int getComponentId() {
         return componentId;
@@ -99,6 +128,10 @@ public abstract class Gate implements Component, Serializable {
         this.output = output;
     }
     
+    public void setOutput(boolean output) {
+        this.output = output ? 1 : 0;
+    }
+
     @Override
     public abstract void calculate();
 }

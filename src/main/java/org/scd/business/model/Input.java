@@ -10,6 +10,8 @@ public class Input implements Serializable {
     private Integer value; // 0, 1, or null (not set)
     private Integer sourceComponentId; // ID of the component providing this input
     
+    public Input() {}
+
     public Input(int inputIndex) {
         this.inputIndex = inputIndex;
         this.value = null;
