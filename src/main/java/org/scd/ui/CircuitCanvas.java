@@ -203,15 +203,11 @@ public class CircuitCanvas extends JPanel {
         this.connectorMode = enabled;
         if (enabled) {
             selectedSource = null;
-            JOptionPane.showMessageDialog(this, 
-                "Connector Mode: Click on a source gate, then click on a target component");
         } else {
             if (selectedSource != null) {
                 selectedSource.resetBorder();
             }
             selectedSource = null;
-            JOptionPane.showMessageDialog(this, 
-                "Connector Mode Disabled");
         }
     }
     
@@ -239,15 +235,7 @@ public class CircuitCanvas extends JPanel {
                     selectedSource = clickedGate;
                     // Highlight with green border
                     selectedSource.setSelectedAsSrc();
-                    JOptionPane.showMessageDialog(this, 
-                        "Source selected: " + clickedGate.getGateType() + " Gate " + clickedGate.getComponentId() + 
-                        "\nNow select the destination component");
-                } else {
-                    JOptionPane.showMessageDialog(this, 
-                        "This gate has no output yet. Please set its inputs first.");
                 }
-            } else {
-                JOptionPane.showMessageDialog(this, "Please click on a gate component as source");
             }
         } else {
             // Second click: select target
@@ -329,10 +317,6 @@ public class CircuitCanvas extends JPanel {
             target.updateImage();
             
             repaint();
-            
-            JOptionPane.showMessageDialog(this, 
-                "Connected " + source.getGateType() + " Gate " + source.getComponentId() + 
-                " to " + target.getGateType() + " Gate " + target.getComponentId());
         }
     }
     
