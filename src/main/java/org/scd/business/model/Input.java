@@ -18,6 +18,19 @@ public class Input implements Serializable {
         this.sourceComponentId = null;
     }
     
+    /**
+     * Copy constructor for cloning an Input.
+     * Creates a copy without source connection (sourceComponentId is null).
+     * Connections will be re-established via connectors.
+     * 
+     * @param source The Input to copy from
+     */
+    public Input(Input source) {
+        this.inputIndex = source.inputIndex;
+        this.value = source.value;
+        this.sourceComponentId = null; // Don't copy connection, will be set by connectors
+    }
+    
     public boolean isConnected() {
         return sourceComponentId != null;
     }

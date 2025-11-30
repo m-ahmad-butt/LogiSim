@@ -424,12 +424,141 @@ public class CircuitService {
         return ++circuitIdCounter;
     }
     
- 
+    /**
+     * Inner class to hold cloned circuit components data
+     */
+    public static class ClonedComponents {
+        public List<Gate> gates;
+        public List<LED> leds;
+        public List<Connector> connectors;
+        public Map<Integer, Integer> idMapping; // old ID -> new ID
+        
+        public ClonedComponents() {
+            gates = new ArrayList<>();
+            leds = new ArrayList<>();
+            connectors = new ArrayList<>();
+            idMapping = new HashMap<>();
+        }
+    }
+    
+    /**
+     * Switches to the specified circuit as the current circuit.
+     * Saves the current state before switching.
+     * 
+     * @param circuit The circuit to switch to
+     */
+    public void switchToCircuit(Circuit circuit) {
+        if (circuit != null) {
+            this.currentCircuit = circuit;
+            // Note: componentIdCounter keeps incrementing globally to avoid conflicts
+        }
+    }
+    
+    /**
+     * Clones all components from a source circuit with position offset.
+     * Generates new unique IDs for all components and remaps connector references.
+     * 
+     * @param sourceCircuit The circuit to clone from
+     * @param offsetX X-axis offset for all components
+     * @param offsetY Y-axis offset for all components
+     * @return ClonedComponents containing the cloned gates, LEDs, connectors, and ID mapping
+     */
+    public ClonedComponents cloneCircuitComponents(Circuit sourceCircuit, int offsetX, int offsetY) {
+        ClonedComponents cloned = new ClonedComponents();
+        
+        System.out.println("=== Cloning Circuit Components ===");
+        System.out.println("Offset to apply: (" + offsetX + ", " + offsetY + ")");
+        
+        // Clone gates with new IDs
+        for (Gate sourceGate : sourceCircuit.getGates()) {
+            int newId = generateComponentId();
+            cloned.idMapping.put(sourceGate.getComponentId(), newId);
+            
+            Gate clonedGate = null;
+            String gateType = sourceGate.getGateType();
+            
+            System.out.println("Cloning " + gateType + " gate from (" + sourceGate.getPositionX() + ", " + sourceGate.getPositionY() + ")");
+            
+            if (gateType.equals("AND")) {
+                clonedGate = new And((And)sourceGate, newId, offsetX, offsetY);
+            } else if (gateType.equals("OR")) {
+                clonedGate = new Or((Or)sourceGate, newId, offsetX, offsetY);
+            } else if (gateType.equals("NOT")) {
+                clonedGate = new Not((Not)sourceGate, newId, offsetX, offsetY);
+            }
+            
+            if (clonedGate != null) {
+                System.out.println("  -> Cloned to (" + clonedGate.getPositionX() + ", " + clonedGate.getPositionY() + ")");
+                cloned.gates.add(clonedGate);
+            }
+        }
+        
+        // Clone LEDs with new IDs
+        for (LED sourceLED : sourceCircuit.getLeds()) {
+            int newId = generateComponentId();
+            cloned.idMapping.put(sourceLED.getComponentId(), newId);
+            
+            LED clonedLED = new LED(sourceLED, newId, offsetX, offsetY);
+            cloned.leds.add(clonedLED);
+        }
+        
+        // Clone connectors with remapped IDs
+        for (Connector sourceConnector : sourceCircuit.getConnectors()) {
+            int newConnectorId = generateConnectorId();
+            int newSourceId = cloned.idMapping.get(sourceConnector.getSourceComponentId());
+            int newTargetId = cloned.idMapping.get(sourceConnector.getTargetComponentId());
+            
+            Connector clonedConnector = new Connector(sourceConnector, newConnectorId, newSourceId, newTargetId);
+            cloned.connectors.add(clonedConnector);
+        }
+        
+        return cloned;
+    }
+    
+    /**
+     * Merges cloned components into the current circuit.
+     * 
+     * @param gates List of gates to merge
+     * @param leds List of LEDs to merge
+     * @param connectors List of connectors to merge
+     */
+    public void mergeComponentsIntoCurrentCircuit(List<Gate> gates, List<LED> leds, List<Connector> connectors) {
+        // Add all gates
+        for (Gate gate : gates) {
+            currentCircuit.addGate(gate);
+        }
+        
+        // Add all LEDs
+        for (LED led : leds) {
+            currentCircuit.addLED(led);
+        }
+        
+        // Add all connectors and establish connections
+        for (Connector connector : connectors) {
+            currentCircuit.addConnector(connector);
+            
+            // Update target input connection
+            Gate targetGate = currentCircuit.findGateById(connector.getTargetComponentId());
+            if (targetGate != null) {
+                Input input = (connector.getTargetInputIndex() == 0) ? 
+                              targetGate.getInput1() : targetGate.getInput2();
+                if (input != null) {
+                    input.setSourceComponentId(connector.getSourceComponentId());
+                }
+            } else {
+                LED targetLED = currentCircuit.findLEDById(connector.getTargetComponentId());
+                if (targetLED != null) {
+                    targetLED.getInput().setSourceComponentId(connector.getSourceComponentId());
+                }
+            }
+        }
+    }
+  
     public void saveCircuit(Circuit circuit) {
           //krlo yar
     }
     
-  
+   
     public Circuit loadCircuit(int circuitId) {
         //krlo yar
         return null;

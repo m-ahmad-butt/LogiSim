@@ -23,6 +23,22 @@ public class Connector implements Serializable {
         this.wireColor = wireColor;
     }
     
+    /**
+     * Copy constructor for cloning a connector with remapped component IDs.
+     * 
+     * @param source The connector to copy from
+     * @param newId The new connector ID
+     * @param newSourceId The new source component ID
+     * @param newTargetId The new target component ID
+     */
+    public Connector(Connector source, int newId, int newSourceId, int newTargetId) {
+        this.connectorId = newId;
+        this.sourceComponentId = newSourceId;
+        this.targetComponentId = newTargetId;
+        this.targetInputIndex = source.targetInputIndex;
+        this.wireColor = source.wireColor;
+    }
+    
     // Getters and setters
     public int getConnectorId() {
         return connectorId;

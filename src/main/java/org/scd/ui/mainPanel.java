@@ -19,6 +19,10 @@ public class mainPanel extends JPanel {
     private boolean isDragging = false;
     private boolean isOverlapping = false; // Track if drag position overlaps with existing component
     
+    // Circuit drag-and-drop fields
+    private org.scd.business.model.Circuit draggedCircuit = null;
+    private Rectangle draggedCircuitBounds = null;
+    
     public mainPanel() {
         this.service = CircuitService.getInstance();
         setLayout(new BorderLayout());
@@ -216,7 +220,7 @@ public class mainPanel extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         
-        // Draw ghost component during drag
+        // Draw ghost component during component drag
         if (isDragging && currentDragPoint != null && draggedComponentType != null) {
             Graphics2D g2d = (Graphics2D) g;
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
@@ -247,6 +251,51 @@ public class mainPanel extends JPanel {
             g2d.drawString(draggedComponentType, 
                 currentDragPoint.x - textWidth/2, 
                 currentDragPoint.y + 5);
+        }
+        
+        // Draw ghost circuit during circuit drag
+        if (isDragging && currentDragPoint != null && draggedCircuit != null && draggedCircuitBounds != null) {
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+            
+            // Draw bounding box for the circuit
+            // Red if overlapping, green if valid placement
+            if (isOverlapping) {
+                g2d.setColor(new Color(255, 100, 100)); // Red for invalid
+            } else {
+                g2d.setColor(new Color(100, 255, 150)); // Green for valid
+            }
+            g2d.fillRect(currentDragPoint.x, currentDragPoint.y, 
+                draggedCircuitBounds.width, draggedCircuitBounds.height);
+            
+            // Draw border
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f));
+            if (isOverlapping) {
+                g2d.setColor(new Color(200, 0, 0)); // Dark red border
+            } else {
+                g2d.setColor(new Color(0, 150, 50)); // Dark green border
+            }
+            g2d.setStroke(new BasicStroke(3)); // Solid border
+            g2d.drawRect(currentDragPoint.x, currentDragPoint.y, 
+                draggedCircuitBounds.width, draggedCircuitBounds.height);
+            
+            // Draw circuit name label
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("Arial", Font.BOLD, 14));
+            String circuitName = draggedCircuit.getCircuitName();
+            FontMetrics fm = g2d.getFontMetrics();
+            int textWidth = fm.stringWidth(circuitName);
+            
+            // Draw text background
+            int textX = currentDragPoint.x + draggedCircuitBounds.width / 2 - textWidth / 2;
+            int textY = currentDragPoint.y + draggedCircuitBounds.height / 2;
+            g2d.setColor(new Color(0, 0, 0, 180));
+            g2d.fillRect(textX - 5, textY - fm.getAscent() - 2, textWidth + 10, fm.getHeight() + 4);
+            
+            // Draw text
+            g2d.setColor(Color.WHITE);
+            g2d.drawString(circuitName, textX, textY);
         }
     }
     
@@ -518,8 +567,17 @@ public class mainPanel extends JPanel {
                 circuitButton.setOpaque(true);
             }
             
-            // Note: Circuit switching functionality will be added later
-            // For now, just display the circuit names
+            // Add click handler for circuit switching
+            circuitButton.addActionListener(e -> {
+                if (circuit != service.getCurrentCircuit()) {
+                    handleCircuitSwitch(circuit);
+                }
+            });
+            
+            // Add drag-and-drop for circuits (except current circuit)
+            if (circuit != service.getCurrentCircuit()) {
+                setupCircuitDragAndDrop(circuitButton, circuit);
+            }
             
             circuitsListPanel.add(circuitButton);
             circuitsListPanel.add(Box.createRigidArea(new Dimension(0, 5)));
@@ -527,6 +585,306 @@ public class mainPanel extends JPanel {
         
         circuitsListPanel.revalidate();
         circuitsListPanel.repaint();
+    }
+    
+    /**
+     * Handle switching to a different circuit
+     */
+    private void handleCircuitSwitch(org.scd.business.model.Circuit circuit) {
+        // Switch to the selected circuit
+        service.switchToCircuit(circuit);
+        
+        // Clear and reload canvas
+        circuitCanvas.clearCanvas();
+        circuitCanvas.loadCircuit(circuit);
+        
+        // Update UI
+        updateCircuitList(); // Refresh to update highlighting
+        updateCircuitCount();
+    }
+    
+    /**
+     * Setup drag-and-drop for a circuit button
+     */
+    private void setupCircuitDragAndDrop(JButton button, org.scd.business.model.Circuit circuit) {
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                // Start drag operation
+                draggedCircuit = circuit;
+                dragStartPoint = e.getPoint();
+                isDragging = false; // Not dragging until mouse moves
+                
+                // Calculate bounds of circuit (for visualization)
+                draggedCircuitBounds = calculateCircuitBounds(circuit);
+            }
+            
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (isDragging && draggedCircuit != null) {
+                    // Convert button coordinates to canvas coordinates
+                    Point canvasPoint = SwingUtilities.convertPoint(button, e.getPoint(), circuitCanvas);
+                    
+                    // Check if released over canvas
+                    if (canvasPoint.x >= 0 && canvasPoint.y >= 0 && 
+                        canvasPoint.x < circuitCanvas.getWidth() && 
+                        canvasPoint.y < circuitCanvas.getHeight()) {
+                        
+                        handleCircuitDrop(draggedCircuit, canvasPoint);
+                    }
+                }
+                
+                // Reset drag state
+                draggedCircuit = null;
+                draggedCircuitBounds = null;
+                dragStartPoint = null;
+                currentDragPoint = null;
+                isDragging = false;
+                isOverlapping = false;
+                repaint();
+            }
+        });
+        
+        button.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                if (draggedCircuit != null) {
+                    isDragging = true;
+                    // Update drag position for visual feedback
+                    currentDragPoint = SwingUtilities.convertPoint(button, e.getPoint(), mainPanel.this);
+                    
+                    // Check for overlap with existing components
+                    Point canvasPoint = SwingUtilities.convertPoint(button, e.getPoint(), circuitCanvas);
+                    
+                    if (draggedCircuitBounds != null) {
+                        // Create bounds at the drop location
+                        // Note: draggedCircuitBounds already contains width/height of the circuit
+                        // canvasPoint is where we want to place the top-left corner
+                        Rectangle testBounds = new Rectangle(
+                            canvasPoint.x,
+                            canvasPoint.y,
+                            draggedCircuitBounds.width,
+                            draggedCircuitBounds.height
+                        );
+                        isOverlapping = circuitCanvas.checkOverlap(testBounds, null);
+                    }
+                    
+                    repaint();
+                }
+            }
+        });
+    }
+    
+    /**
+     * Calculate the bounding rectangle for a circuit
+     */
+    private Rectangle calculateCircuitBounds(org.scd.business.model.Circuit circuit) {
+        if (circuit.getGates().isEmpty() && circuit.getLeds().isEmpty()) {
+            return new Rectangle(0, 0, 200, 100); // Default size for empty circuits
+        }
+        
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        
+        // Find bounds from gates
+        for (org.scd.business.model.Gate gate : circuit.getGates()) {
+            minX = Math.min(minX, gate.getPositionX());
+            minY = Math.min(minY, gate.getPositionY());
+            maxX = Math.max(maxX, gate.getPositionX() + 150); // Gate width
+            maxY = Math.max(maxY, gate.getPositionY() + 80);  // Gate height
+        }
+        
+        // Find bounds from LEDs
+        for (org.scd.business.model.LED led : circuit.getLeds()) {
+            minX = Math.min(minX, led.getPositionX());
+            minY = Math.min(minY, led.getPositionY());
+            maxX = Math.max(maxX, led.getPositionX() + 150); // LED width
+            maxY = Math.max(maxY, led.getPositionY() + 80);  // LED height
+        }
+        
+        return new Rectangle(minX, minY, maxX - minX, maxY - minY);
+    }
+    
+    /**
+     * Handle dropping a circuit onto the canvas
+     */
+    private void handleCircuitDrop(org.scd.business.model.Circuit circuit, Point dropPoint) {
+        // Get the circuit's bounding box to know where its components start
+        Rectangle bounds = calculateCircuitBounds(circuit);
+        
+        // The offset is how much we need to move the circuit so that its
+        // top-left corner (bounds.x, bounds.y) ends up at the dropPoint
+        int offsetX = dropPoint.x - bounds.x;
+        int offsetY = dropPoint.y - bounds.y;
+        
+        System.out.println("=== Circuit Drop Debug ===");
+        System.out.println("Circuit: " + circuit.getCircuitName());
+        System.out.println("Drop point (where mouse released): (" + dropPoint.x + ", " + dropPoint.y + ")");
+        System.out.println("Circuit original bounds (minX, minY, width, height): " + bounds);
+        System.out.println("Calculated offset: (" + offsetX + ", " + offsetY + ")");
+        System.out.println("Components will be moved from original position + offset");
+        
+        // Clone components from the circuit
+        org.scd.business.service.CircuitService.ClonedComponents cloned = 
+            service.cloneCircuitComponents(circuit, offsetX, offsetY);
+        
+        // IMPORTANT: Add cloned components to service FIRST, before creating UI components
+        // This ensures that when GateComponent constructor queries service.getComponentPositionX/Y,
+        // the components are already in the service with correct positions
+        service.mergeComponentsIntoCurrentCircuit(cloned.gates, cloned.leds, cloned.connectors);
+        
+        // Now create UI components - they will query service for positions
+        java.util.List<GateComponent> tempGates = new java.util.ArrayList<>();
+        java.util.List<LEDComponent> tempLEDs = new java.util.ArrayList<>();
+        
+        for (org.scd.business.model.Gate gate : cloned.gates) {
+            GateComponent gc = new GateComponent(gate);
+            tempGates.add(gc);
+        }
+        
+        for (org.scd.business.model.LED led : cloned.leds) {
+            LEDComponent lc = new LEDComponent(led);
+            tempLEDs.add(lc);
+        }
+        
+        // Check overlap
+        boolean hasOverlap = false;
+        for (GateComponent gc : tempGates) {
+            if (circuitCanvas.checkOverlap(gc.getBounds(), null)) {
+                hasOverlap = true;
+                break;
+            }
+        }
+        
+        if (!hasOverlap) {
+            for (LEDComponent lc : tempLEDs) {
+                if (circuitCanvas.checkOverlap(lc.getBounds(), null)) {
+                    hasOverlap = true;
+                    break;
+                }
+            }
+        }
+        
+        if (hasOverlap) {
+            // Overlap detected - need to remove the components we just added to service
+            for (org.scd.business.model.Gate gate : cloned.gates) {
+                service.removeGate(gate.getComponentId());
+            }
+            for (org.scd.business.model.LED led : cloned.leds) {
+                service.removeLED(led.getComponentId());
+            }
+            for (org.scd.business.model.Connector connector : cloned.connectors) {
+                service.removeConnector(connector.getConnectorId());
+            }
+            
+            JOptionPane.showMessageDialog(this,
+                "Cannot place circuit here - components would overlap with existing components!",
+                "Invalid Placement",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // No overlap, add UI components to canvas
+        // (components are already in service from earlier merge)
+        
+        // Add UI components to canvas
+        for (GateComponent gc : tempGates) {
+            circuitCanvas.getGates().add(gc);
+            circuitCanvas.add(gc);
+        }
+        
+        for (LEDComponent lc : tempLEDs) {
+            circuitCanvas.getLEDs().add(lc);
+            circuitCanvas.add(lc);
+        }
+        
+        // Create wire connections
+        for (org.scd.business.model.Connector connector : cloned.connectors) {
+            GateComponent sourceGate = findGateComponentById(connector.getSourceComponentId(), tempGates);
+            Object target = findComponentById(connector.getTargetComponentId(), tempGates, tempLEDs);
+            
+            if (sourceGate != null && target != null) {
+                int wireIndex = 0;
+                // Count existing wires from this source
+                for (WireConnection existingWire : circuitCanvas.getWires()) {
+                    if (existingWire.getSourceGate() == sourceGate) {
+                        wireIndex++;
+                    }
+                }
+                
+                WireConnection wire = new WireConnection(sourceGate, target, 
+                    connector.getTargetInputIndex(), circuitCanvas, wireIndex);
+                circuitCanvas.getWires().add(wire);
+                
+                // Update UI component connections
+                if (target instanceof GateComponent) {
+                    GateComponent targetGate = (GateComponent) target;
+                    if (connector.getTargetInputIndex() == 0) {
+                        targetGate.getInput1().setSourceComponent(sourceGate);
+                    } else {
+                        targetGate.getInput2().setSourceComponent(sourceGate);
+                    }
+                } else if (target instanceof LEDComponent) {
+                    LEDComponent targetLED = (LEDComponent) target;
+                    targetLED.setInputSource(sourceGate);
+                }
+            }
+        }
+        
+        // Recalculate circuit and update display
+        service.calculateCircuit();
+        circuitCanvas.refreshCircuit();
+        circuitCanvas.repaint();
+        updateCircuitCount();
+    }
+    
+    /**
+     * Find a GateComponent by its ID in a list
+     */
+    private GateComponent findGateComponentById(int id, java.util.List<GateComponent> gates) {
+        for (GateComponent gc : gates) {
+            if (gc.getComponentId() == id) {
+                return gc;
+            }
+        }
+        // Also check existing canvas gates
+        for (GateComponent gc : circuitCanvas.getGates()) {
+            if (gc.getComponentId() == id) {
+                return gc;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Find a component (Gate or LED) by ID
+     */
+    private Object findComponentById(int id, java.util.List<GateComponent> gates, java.util.List<LEDComponent> leds) {
+        // Check in provided lists first
+        for (GateComponent gc : gates) {
+            if (gc.getComponentId() == id) {
+                return gc;
+            }
+        }
+        for (LEDComponent lc : leds) {
+            if (lc.getComponentId() == id) {
+                return lc;
+            }
+        }
+        // Check existing canvas components
+        for (GateComponent gc : circuitCanvas.getGates()) {
+            if (gc.getComponentId() == id) {
+                return gc;
+            }
+        }
+        for (LEDComponent lc : circuitCanvas.getLEDs()) {
+            if (lc.getComponentId() == id) {
+                return lc;
+            }
+        }
+        return null;
     }
     
     public void setProjectName(String name) {

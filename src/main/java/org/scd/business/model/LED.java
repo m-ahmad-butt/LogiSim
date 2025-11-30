@@ -22,6 +22,24 @@ public class LED implements Component, Serializable {
         this.isOn = false;
     }
     
+    /**
+     * Copy constructor for cloning an LED with offset position.
+     * 
+     * @param source The LED to copy from
+     * @param newId The new component ID
+     * @param offsetX X-axis offset for position
+     * @param offsetY Y-axis offset for position
+     */
+    public LED(LED source, int newId, int offsetX, int offsetY) {
+        this.componentId = newId;
+        this.positionX = source.positionX + offsetX;
+        this.positionY = source.positionY + offsetY;
+        this.input = new Input(source.input);
+        this.isOn = false; // Will be recalculated
+        this.row = source.row;
+        this.column = source.column;
+    }
+    
     @Override
     public int getComponentId() {
         return componentId;
