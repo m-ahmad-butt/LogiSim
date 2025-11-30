@@ -68,56 +68,72 @@ public class Dashboard extends JFrame {
     }
 
     private void showStartupDialog() {
-        String[] options = {"Create New Project", "Load Existing Project"};
-        int choice = JOptionPane.showOptionDialog(
-            this,
-            "Welcome to LogiSum Circuit Designer!\nWhat would you like to do?",
-            "LogiSum - Startup",
-            JOptionPane.DEFAULT_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            null,
-            options,
-            options[0]
-        );
+        boolean projectSelected = false;
         
-        if (choice == 0) { // Create New Project
-            // Keep asking until user provides a valid name or cancels
-            String projectName = null;
-            while (projectName == null || projectName.trim().isEmpty()) {
-                projectName = JOptionPane.showInputDialog(this, 
-                    "Enter new project name (required):",
-                    "New Project",
-                    JOptionPane.QUESTION_MESSAGE);
-                
-                if (projectName == null) {
-                    // User cancelled, ask again if they want to create or load
-                    showStartupDialog();
-                    return;
+        while (!projectSelected) {
+            String[] options = {"Create New Project", "Load Existing Project"};
+            int choice = JOptionPane.showOptionDialog(
+                this,
+                "Welcome to LogiSum Circuit Designer!\nWhat would you like to do?",
+                "LogiSum - Startup",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+            );
+            
+            if (choice == 0) { // Create New Project
+                // Keep asking until user provides a valid name or cancels
+                String projectName = null;
+                while (projectName == null || projectName.trim().isEmpty()) {
+                    projectName = JOptionPane.showInputDialog(this, 
+                        "Enter new project name (required):",
+                        "New Project",
+                        JOptionPane.QUESTION_MESSAGE);
+                    
+                    if (projectName == null) {
+                        // User cancelled, break inner loop to go back to main dialog
+                        break;
+                    }
+                    
+                    if (projectName.trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(this, 
+                            "Project name cannot be empty!",
+                            "Invalid Name", 
+                            JOptionPane.WARNING_MESSAGE);
+                    }
                 }
                 
-                if (projectName.trim().isEmpty()) {
+                if (projectName != null && !projectName.trim().isEmpty()) {
+                    circuitService.createNewCircuit("Main Circuit");
+                    currentProjectName = projectName.trim(); // Store project name
+                    currentProjectId = 0; // New project has no ID yet
+                    setTitle("LogiSum - " + currentProjectName);
+                    mainPage.setProjectName(currentProjectName);
+                    mainPage.updateCircuitList(); // Update circuit list after creating first circuit
                     JOptionPane.showMessageDialog(this, 
-                        "Project name cannot be empty!",
-                        "Invalid Name", 
-                        JOptionPane.WARNING_MESSAGE);
+                        "New project '" + currentProjectName + "' created!\nYou can start designing your circuit.",
+                        "Project Created", JOptionPane.INFORMATION_MESSAGE);
+                    projectSelected = true;
+                }
+                    
+            } else if (choice == 1) { // Load Existing Project
+                if (handleLoadProject()) {
+                    projectSelected = true;
+                }
+            } else {
+                // User closed dialog without choosing, loop continues to enforce selection
+                // Optionally could add a confirm exit dialog here if they really want to quit app
+                int exit = JOptionPane.showConfirmDialog(this, 
+                    "You must create or load a project to use the application.\nDo you want to exit LogiSum?", 
+                    "Exit Application?", 
+                    JOptionPane.YES_NO_OPTION);
+                    
+                if (exit == JOptionPane.YES_OPTION) {
+                    System.exit(0);
                 }
             }
-            
-            circuitService.createNewCircuit("Main Circuit");
-            currentProjectName = projectName.trim(); // Store project name
-            currentProjectId = 0; // New project has no ID yet
-            setTitle("LogiSum - " + currentProjectName);
-            mainPage.setProjectName(currentProjectName);
-            mainPage.updateCircuitList(); // Update circuit list after creating first circuit
-            JOptionPane.showMessageDialog(this, 
-                "New project '" + currentProjectName + "' created!\nYou can start designing your circuit.",
-                "Project Created", JOptionPane.INFORMATION_MESSAGE);
-                
-        } else if (choice == 1) { // Load Existing Project
-            handleLoadProject();
-        } else {
-            // User closed dialog without choosing, default to create new
-            showStartupDialog();
         }
     }
 
@@ -178,11 +194,11 @@ public class Dashboard extends JFrame {
         }
     }
 
-    private void handleLoadProject() {
+    private boolean handleLoadProject() {
         java.util.Map<Integer, String> projects = projectService.getProjectList();
         if (projects == null || projects.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No projects found.");
-            return;
+            return false;
         }
 
         // Create selection array
@@ -218,11 +234,14 @@ public class Dashboard extends JFrame {
                     mainPage.updateCircuitList(); // Update circuit list after loading project
                     
                     JOptionPane.showMessageDialog(this, "Project loaded successfully!");
+                    return true;
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to load project or project is empty.");
+                    return false;
                 }
             }
         }
+        return false;
     }
 
     private void handleExportCanvas() {

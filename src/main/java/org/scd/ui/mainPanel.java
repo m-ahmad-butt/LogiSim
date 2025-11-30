@@ -100,7 +100,7 @@ public class mainPanel extends JPanel {
 
         //South panel
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JLabel circuitCountTitle = new JLabel("Number of Circuits: ");
+        JLabel circuitCountTitle = new JLabel("Number of Components: ");
         circuitCount = new JLabel("0");
         bottomPanel.add(circuitCountTitle);
         bottomPanel.add(circuitCount);
