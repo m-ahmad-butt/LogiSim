@@ -89,6 +89,7 @@ public class mainPanel extends JPanel {
         notBtn.addActionListener(e -> addGate("NOT"));
         ledBtn.addActionListener(e -> addLED());
         connectorBtn.addActionListener(e -> activateConnectorMode());
+        simulateBtn.addActionListener(e -> showSimulationDialog());
         analyzeBtn.addActionListener(e -> showTruthTable());
         
         // Add all panels to mainPanel
@@ -153,6 +154,190 @@ public class mainPanel extends JPanel {
         
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Truth Table", true);
         dialog.setContentPane(truthTablePanel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+    
+    private void showSimulationDialog() {
+        // Get all gates and LEDs
+        java.util.List<org.scd.business.model.Gate> gates = service.getAllGates();
+        java.util.List<org.scd.business.model.LED> leds = service.getAllLEDs();
+        
+        if (gates.isEmpty() && leds.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No components in the circuit to simulate!", 
+                "Simulation", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        // Create simulation dialog
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Circuit Simulation", true);
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // Input panel
+        JPanel inputPanel = new JPanel();
+        inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
+        inputPanel.setBorder(BorderFactory.createTitledBorder("Set Input Values"));
+        
+        java.util.Map<Integer, JTextField[]> inputFields = new java.util.HashMap<>();
+        
+        for (org.scd.business.model.Gate gate : gates) {
+            // Check if gate has manual inputs (not connected)
+            boolean hasManualInput1 = gate.getInput1() != null && !service.isInputConnected(gate.getComponentId(), 0);
+            boolean hasManualInput2 = gate.getInput2() != null && !service.isInputConnected(gate.getComponentId(), 1);
+            
+            if (hasManualInput1 || hasManualInput2) {
+                JPanel gatePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                gatePanel.add(new JLabel(gate.getGateType() + " Gate " + gate.getComponentId() + ":"));
+                
+                JTextField[] fields = new JTextField[2];
+                
+                if (hasManualInput1) {
+                    gatePanel.add(new JLabel("  Input 1:"));
+                    JTextField input1Field = new JTextField(3);
+                    input1Field.setText(gate.getInput1().getValue() != null ? 
+                        gate.getInput1().getValue().toString() : "");
+                    gatePanel.add(input1Field);
+                    fields[0] = input1Field;
+                }
+                
+                if (hasManualInput2) {
+                    gatePanel.add(new JLabel("  Input 2:"));
+                    JTextField input2Field = new JTextField(3);
+                    input2Field.setText(gate.getInput2().getValue() != null ? 
+                        gate.getInput2().getValue().toString() : "");
+                    gatePanel.add(input2Field);
+                    fields[1] = input2Field;
+                }
+                
+                inputFields.put(gate.getComponentId(), fields);
+                inputPanel.add(gatePanel);
+            }
+        }
+        
+        if (inputFields.isEmpty()) {
+            JLabel noInputsLabel = new JLabel("All inputs are connected via wires. No manual inputs needed.");
+            noInputsLabel.setForeground(Color.BLUE);
+            inputPanel.add(noInputsLabel);
+        }
+        
+        JScrollPane inputScrollPane = new JScrollPane(inputPanel);
+        inputScrollPane.setPreferredSize(new Dimension(500, 200));
+        
+        // Output panel
+        JPanel outputPanel = new JPanel();
+        outputPanel.setLayout(new BoxLayout(outputPanel, BoxLayout.Y_AXIS));
+        outputPanel.setBorder(BorderFactory.createTitledBorder("Circuit Outputs"));
+        
+        JTextArea outputArea = new JTextArea(10, 40);
+        outputArea.setEditable(false);
+        outputArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        JScrollPane outputScrollPane = new JScrollPane(outputArea);
+        outputPanel.add(outputScrollPane);
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton runButton = new JButton("Run Simulation");
+        JButton closeButton = new JButton("Close");
+        
+        runButton.addActionListener(e -> {
+            try {
+                // Set input values
+                for (java.util.Map.Entry<Integer, JTextField[]> entry : inputFields.entrySet()) {
+                    int gateId = entry.getKey();
+                    JTextField[] fields = entry.getValue();
+                    
+                    if (fields[0] != null && !fields[0].getText().trim().isEmpty()) {
+                        int value = Integer.parseInt(fields[0].getText().trim());
+                        if (value != 0 && value != 1) {
+                            JOptionPane.showMessageDialog(dialog, 
+                                "Input values must be 0 or 1!", 
+                                "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                        service.setGateInput(gateId, 0, value, null);
+                    }
+                    
+                    if (fields[1] != null && !fields[1].getText().trim().isEmpty()) {
+                        int value = Integer.parseInt(fields[1].getText().trim());
+                        if (value != 0 && value != 1) {
+                            JOptionPane.showMessageDialog(dialog, 
+                                "Input values must be 0 or 1!", 
+                                "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                        service.setGateInput(gateId, 1, value, null);
+                    }
+                }
+                
+                // Run simulation
+                service.calculateCircuit();
+                circuitCanvas.refreshCircuit();
+                
+                // Display results
+                StringBuilder results = new StringBuilder();
+                results.append("SIMULATION RESULTS\n");
+                results.append("=".repeat(50)).append("\n\n");
+                
+                results.append("GATES:\n");
+                results.append("-".repeat(50)).append("\n");
+                results.append(String.format("%-15s %-10s %-15s %-15s %-10s\n", 
+                    "Component", "Type", "Input 1", "Input 2", "Output"));
+                results.append("-".repeat(50)).append("\n");
+                
+                for (org.scd.business.model.Gate gate : gates) {
+                    String input1 = gate.getInput1() != null && gate.getInput1().getValue() != null ? 
+                        gate.getInput1().getValue().toString() : "-";
+                    String input2 = gate.getInput2() != null && gate.getInput2().getValue() != null ? 
+                        gate.getInput2().getValue().toString() : "-";
+                    String output = gate.getOutput() != null ? gate.getOutput().toString() : "-";
+                    
+                    results.append(String.format("%-15s %-10s %-15s %-15s %-10s\n",
+                        gate.getGateType() + " " + gate.getComponentId(),
+                        gate.getGateType(),
+                        input1,
+                        input2,
+                        output));
+                }
+                
+                if (!leds.isEmpty()) {
+                    results.append("\nLEDs:\n");
+                    results.append("-".repeat(50)).append("\n");
+                    results.append(String.format("%-15s %-15s %-10s\n", "Component", "Input", "State"));
+                    results.append("-".repeat(50)).append("\n");
+                    
+                    for (org.scd.business.model.LED led : leds) {
+                        String input = led.getInput() != null && led.getInput().getValue() != null ? 
+                            led.getInput().getValue().toString() : "-";
+                        String state = led.isOn() ? "ON" : "OFF";
+                        
+                        results.append(String.format("%-15s %-15s %-10s\n",
+                            "LED " + led.getComponentId(),
+                            input,
+                            state));
+                    }
+                }
+                
+                outputArea.setText(results.toString());
+                
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(dialog, 
+                    "Please enter valid numbers (0 or 1) for inputs!", 
+                    "Invalid Input", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        
+        closeButton.addActionListener(e -> dialog.dispose());
+        
+        buttonPanel.add(runButton);
+        buttonPanel.add(closeButton);
+        
+        mainPanel.add(inputScrollPane, BorderLayout.NORTH);
+        mainPanel.add(outputPanel, BorderLayout.CENTER);
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        dialog.setContentPane(mainPanel);
         dialog.pack();
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
