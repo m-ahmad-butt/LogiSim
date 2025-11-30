@@ -1,5 +1,7 @@
 package org.scd.ui;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WireConnection {
     private static int idCounter = 0;
@@ -49,175 +51,161 @@ public class WireConnection {
     }
     
     public void draw(Graphics2D g2d) {
-        if (startPoint == null || endPoint == null || canvas == null) {
+        if (startPoint == null || endPoint == null) {
             return;
         }
         
         g2d.setColor(wireColor);
         g2d.setStroke(new BasicStroke(2));
         
-        int x1 = startPoint.x;
-        int y1 = startPoint.y;
-        int x2 = endPoint.x;
-        int y2 = endPoint.y;
+        List<Point> path = calculatePath();
         
-        int sourceRow = sourceGate.getRow();
-        int targetRow = getTargetRow();
-        int sourceCol = sourceGate.getColumn();
-        int targetCol = getTargetColumn();
-        
-        // Calculate vertical offset for multiple wires from same source
-        int verticalOffset = wireIndexFromSource * 8; // Increased spacing
-        
-        // Horizontal offset from component edges
-        int horizontalOffset = 35;
-        
-        // Determine direction
-        boolean goingLeft = (targetCol < sourceCol);
-        boolean goingDown = (targetRow > sourceRow);
-        
-        if (sourceRow == targetRow) {
-            // Same row routing
-            boolean directlyAdjacent = Math.abs(targetCol - sourceCol) == 1;
-            
-            if (directlyAdjacent && verticalOffset == 0) {
-                // Direct connection for adjacent components
-                g2d.drawLine(x1, y1, x2, y2);
-            } else {
-                // Route through channel above the row
-                int channelIndex = Math.max(0, sourceRow - 1);
-                int routingChannelY = (channelIndex < canvas.getRoutingChannels().size()) 
-                    ? canvas.getRoutingChannels().get(channelIndex) - verticalOffset
-                    : y1 - 50 - verticalOffset;
-                
-                int midX1 = goingLeft ? x1 - horizontalOffset : x1 + horizontalOffset;
-                int midX2 = goingLeft ? x2 + horizontalOffset : x2 - horizontalOffset;
-                
-                g2d.drawLine(x1, y1, midX1, y1);
-                g2d.drawLine(midX1, y1, midX1, routingChannelY);
-                g2d.drawLine(midX1, routingChannelY, midX2, routingChannelY);
-                g2d.drawLine(midX2, routingChannelY, midX2, y2);
-                g2d.drawLine(midX2, y2, x2, y2);
-            }
-        } else {
-            // Different rows routing
-            int routingChannelY;
-            
-            if (goingDown) {
-                // Route through channel below source row
-                int channelIndex = sourceRow;
-                routingChannelY = (channelIndex < canvas.getRoutingChannels().size()) 
-                    ? canvas.getRoutingChannels().get(channelIndex) + verticalOffset
-                    : y1 + 50 + verticalOffset;
-            } else {
-                // Route through channel above target row
-                int channelIndex = Math.max(0, targetRow - 1);
-                routingChannelY = (channelIndex < canvas.getRoutingChannels().size()) 
-                    ? canvas.getRoutingChannels().get(channelIndex) - verticalOffset
-                    : y2 - 50 - verticalOffset;
-            }
-            
-            int midX1 = goingLeft ? x1 - horizontalOffset : x1 + horizontalOffset;
-            int midX2 = goingLeft ? x2 + horizontalOffset : x2 - horizontalOffset;
-            
-            // Draw the path
-            g2d.drawLine(x1, y1, midX1, y1);                      // Exit source
-            g2d.drawLine(midX1, y1, midX1, routingChannelY);      // Vertical to channel
-            g2d.drawLine(midX1, routingChannelY, midX2, routingChannelY); // Horizontal in channel
-            g2d.drawLine(midX2, routingChannelY, midX2, y2);      // Vertical to target
-            g2d.drawLine(midX2, y2, x2, y2);                      // Enter target
+        for (int i = 0; i < path.size() - 1; i++) {
+            Point p1 = path.get(i);
+            Point p2 = path.get(i+1);
+            g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
         }
         
         // Draw connection point indicator
         g2d.fillOval(endPoint.x - 3, endPoint.y - 3, 6, 6);
     }
     
-    private int getTargetRow() {
-        if (targetComponent instanceof GateComponent) {
-            return ((GateComponent) targetComponent).getRow();
-        } else if (targetComponent instanceof LEDComponent) {
-            return ((LEDComponent) targetComponent).getRow();
-        }
-        return 0;
-    }
-    
-    private int getTargetColumn() {
-        if (targetComponent instanceof GateComponent) {
-            return ((GateComponent) targetComponent).getColumn();
-        } else if (targetComponent instanceof LEDComponent) {
-            return ((LEDComponent) targetComponent).getColumn();
-        }
-        return 0;
-    }
-    
     public java.util.List<int[]> getSegments() {
         java.util.List<int[]> segments = new java.util.ArrayList<>();
         
-        if (startPoint == null || endPoint == null || canvas == null) {
+        if (startPoint == null || endPoint == null) {
             return segments;
         }
         
+        List<Point> path = calculatePath();
+        
+        for (int i = 0; i < path.size() - 1; i++) {
+            Point p1 = path.get(i);
+            Point p2 = path.get(i+1);
+            segments.add(new int[]{p1.x, p1.y, p2.x, p2.y});
+        }
+        
+        return segments;
+    }
+    
+    private List<Point> calculatePath() {
         int x1 = startPoint.x;
         int y1 = startPoint.y;
         int x2 = endPoint.x;
         int y2 = endPoint.y;
         
-        int sourceRow = sourceGate.getRow();
-        int targetRow = getTargetRow();
-        int sourceCol = sourceGate.getColumn();
-        int targetCol = getTargetColumn();
-        int horizontalOffset = 35;
-        int verticalOffset = wireIndexFromSource * 8;
-        
-        boolean goingLeft = (targetCol < sourceCol);
-        boolean goingDown = (targetRow > sourceRow);
-        
-        if (sourceRow == targetRow) {
-            boolean directlyAdjacent = Math.abs(targetCol - sourceCol) == 1;
-            
-            if (directlyAdjacent && verticalOffset == 0) {
-                segments.add(new int[]{x1, y1, x2, y2});
-            } else {
-                int channelIndex = Math.max(0, sourceRow - 1);
-                int routingChannelY = (channelIndex < canvas.getRoutingChannels().size()) 
-                    ? canvas.getRoutingChannels().get(channelIndex) - verticalOffset
-                    : y1 - 50 - verticalOffset;
-                
-                int midX1 = goingLeft ? x1 - horizontalOffset : x1 + horizontalOffset;
-                int midX2 = goingLeft ? x2 + horizontalOffset : x2 - horizontalOffset;
-                
-                segments.add(new int[]{x1, y1, midX1, y1});
-                segments.add(new int[]{midX1, y1, midX1, routingChannelY});
-                segments.add(new int[]{midX1, routingChannelY, midX2, routingChannelY});
-                segments.add(new int[]{midX2, routingChannelY, midX2, y2});
-                segments.add(new int[]{midX2, y2, x2, y2});
-            }
-        } else {
-            int routingChannelY;
-            
-            if (goingDown) {
-                int channelIndex = sourceRow;
-                routingChannelY = (channelIndex < canvas.getRoutingChannels().size()) 
-                    ? canvas.getRoutingChannels().get(channelIndex) + verticalOffset
-                    : y1 + 50 + verticalOffset;
-            } else {
-                int channelIndex = Math.max(0, targetRow - 1);
-                routingChannelY = (channelIndex < canvas.getRoutingChannels().size()) 
-                    ? canvas.getRoutingChannels().get(channelIndex) - verticalOffset
-                    : y2 - 50 - verticalOffset;
-            }
-            
-            int midX1 = goingLeft ? x1 - horizontalOffset : x1 + horizontalOffset;
-            int midX2 = goingLeft ? x2 + horizontalOffset : x2 - horizontalOffset;
-            
-            segments.add(new int[]{x1, y1, midX1, y1});
-            segments.add(new int[]{midX1, y1, midX1, routingChannelY});
-            segments.add(new int[]{midX1, routingChannelY, midX2, routingChannelY});
-            segments.add(new int[]{midX2, routingChannelY, midX2, y2});
-            segments.add(new int[]{midX2, y2, x2, y2});
+        // Strategy 1: Straight line (if aligned)
+        int threshold = 10;
+        if (Math.abs(y1 - y2) < threshold || Math.abs(x1 - x2) < threshold) {
+            List<Point> path = new ArrayList<>();
+            path.add(startPoint);
+            path.add(endPoint);
+            if (!isPathBlocked(path)) return path;
         }
         
-        return segments;
+        // Define candidate paths
+        List<List<Point>> candidates = new ArrayList<>();
+        
+        // HV (Horizontal-Vertical)
+        List<Point> hv = new ArrayList<>();
+        hv.add(startPoint);
+        hv.add(new Point(x2, y1));
+        hv.add(endPoint);
+        candidates.add(hv);
+        
+        // VH (Vertical-Horizontal)
+        List<Point> vh = new ArrayList<>();
+        vh.add(startPoint);
+        vh.add(new Point(x1, y2));
+        vh.add(endPoint);
+        candidates.add(vh);
+        
+        // VHV (Standard Z) - Mid Y
+        int midY = (y1 + y2) / 2;
+        List<Point> vhv = new ArrayList<>();
+        vhv.add(startPoint);
+        vhv.add(new Point(x1, midY));
+        vhv.add(new Point(x2, midY));
+        vhv.add(endPoint);
+        candidates.add(vhv);
+        
+        // HVH (Standard Z) - Mid X
+        int midX = (x1 + x2) / 2;
+        List<Point> hvh = new ArrayList<>();
+        hvh.add(startPoint);
+        hvh.add(new Point(midX, y1));
+        hvh.add(new Point(midX, y2));
+        hvh.add(endPoint);
+        candidates.add(hvh);
+        
+        // VHV - Go Above (Avoid obstacles by going up)
+        // Find min Y of all components to be safe? Or just a fixed offset?
+        // Let's try a few fixed offsets relative to source/target
+        int[] yOffsets = {-40, 40, -80, 80};
+        for (int offset : yOffsets) {
+            int altY = Math.min(y1, y2) + offset;
+             // Ensure we don't go off-screen (too high)
+            if (altY < 20) altY = 20;
+            
+            List<Point> altVhv = new ArrayList<>();
+            altVhv.add(startPoint);
+            altVhv.add(new Point(x1, altY));
+            altVhv.add(new Point(x2, altY));
+            altVhv.add(endPoint);
+            candidates.add(altVhv);
+        }
+
+        // Check candidates
+        for (List<Point> path : candidates) {
+            if (!isPathBlocked(path)) {
+                return path;
+            }
+        }
+        
+        // Fallback: Return standard path based on direction even if blocked
+        if (x2 > x1) {
+            return hv; // Prefer HV for rightward
+        } else {
+            return vhv; // Prefer VHV for leftward
+        }
+    }
+    
+    private boolean isPathBlocked(List<Point> path) {
+        if (canvas == null) return false;
+        
+        for (int i = 0; i < path.size() - 1; i++) {
+            Point p1 = path.get(i);
+            Point p2 = path.get(i+1);
+            
+            // Check against Gates
+            for (GateComponent gate : canvas.getGates()) {
+                if (checkCollision(p1, p2, gate, i == 0, i == path.size() - 2)) {
+                    return true;
+                }
+            }
+            
+            // Check against LEDs
+            for (LEDComponent led : canvas.getLEDs()) {
+                if (checkCollision(p1, p2, led, i == 0, i == path.size() - 2)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    private boolean checkCollision(Point p1, Point p2, Component component, boolean isFirstSegment, boolean isLastSegment) {
+        // Skip source component for first segment
+        if (isFirstSegment && component == sourceGate) return false;
+        
+        // Skip target component for last segment
+        if (isLastSegment && component == targetComponent) return false;
+        
+        Rectangle bounds = component.getBounds();
+        // Shrink bounds slightly to allow touching edges
+        Rectangle shrunk = new Rectangle(bounds.x + 2, bounds.y + 2, bounds.width - 4, bounds.height - 4);
+        
+        return shrunk.intersectsLine(p1.x, p1.y, p2.x, p2.y);
     }
     
     public Point findIntersection(WireConnection other) {

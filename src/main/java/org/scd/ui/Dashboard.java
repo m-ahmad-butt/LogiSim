@@ -39,12 +39,21 @@ public class Dashboard extends JFrame {
         fileMenu.add(exportMenuItem);
         
         menuBar.add(fileMenu);
+        
+        // Circuit menu
+        JMenu circuitMenu = new JMenu("Circuit");
+        JMenuItem newCircuitMenuItem = new JMenuItem("New");
+        
+        circuitMenu.add(newCircuitMenuItem);
+        
+        menuBar.add(circuitMenu);
 
         // Add Action Listeners
         newMenuItem.addActionListener(e -> handleNewProject());
         saveMenuItem.addActionListener(e -> handleSaveProject());
         loadMenuItem.addActionListener(e -> handleLoadProject());
         exportMenuItem.addActionListener(e -> handleExportCanvas());
+        newCircuitMenuItem.addActionListener(e -> handleNewCircuit());
 
         setJMenuBar(menuBar);
         
@@ -99,6 +108,7 @@ public class Dashboard extends JFrame {
             currentProjectId = 0; // New project has no ID yet
             setTitle("LogiSum - " + currentProjectName);
             mainPage.setProjectName(currentProjectName);
+            mainPage.updateCircuitList(); // Update circuit list after creating first circuit
             JOptionPane.showMessageDialog(this, 
                 "New project '" + currentProjectName + "' created!\nYou can start designing your circuit.",
                 "Project Created", JOptionPane.INFORMATION_MESSAGE);
@@ -124,6 +134,7 @@ public class Dashboard extends JFrame {
             mainPage.setProjectName("");
             setTitle("LogiSum");
             circuitService.createNewCircuit("New Circuit");
+            mainPage.updateCircuitList(); // Update circuit list after creating new circuit
         }
     }
 
@@ -204,6 +215,7 @@ public class Dashboard extends JFrame {
                     currentProjectId = selectedId; // Store the project ID
                     setTitle("LogiSum - " + currentProjectName);
                     mainPage.setProjectName(currentProjectName);
+                    mainPage.updateCircuitList(); // Update circuit list after loading project
                     
                     JOptionPane.showMessageDialog(this, "Project loaded successfully!");
                 } else {
@@ -238,6 +250,40 @@ public class Dashboard extends JFrame {
                 ex.printStackTrace();
             }
         }
+    }
+    
+    private void handleNewCircuit() {
+        // Ask user for circuit name
+        String circuitName = null;
+        while (circuitName == null || circuitName.trim().isEmpty()) {
+            circuitName = JOptionPane.showInputDialog(this, 
+                "Enter circuit name:",
+                "New Circuit",
+                JOptionPane.QUESTION_MESSAGE);
+            
+            if (circuitName == null) {
+                // User cancelled
+                return;
+            }
+            
+            if (circuitName.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "Circuit name cannot be empty!",
+                    "Invalid Name", 
+                    JOptionPane.WARNING_MESSAGE);
+            }
+        }
+        
+        // Create new circuit
+        org.scd.business.model.Circuit newCircuit = circuitService.createNewCircuit(circuitName.trim());
+        
+        // Update circuit list in mainPanel
+        mainPage.updateCircuitList();
+        
+        JOptionPane.showMessageDialog(this, 
+            "Circuit '" + circuitName.trim() + "' created successfully!",
+            "Circuit Created", 
+            JOptionPane.INFORMATION_MESSAGE);
     }
 
 }

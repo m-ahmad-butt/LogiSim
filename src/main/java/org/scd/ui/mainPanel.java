@@ -10,6 +10,14 @@ public class mainPanel extends JPanel {
     private CircuitCanvas circuitCanvas;
     private JLabel circuitCount;
     private JLabel projectName;
+    private JPanel circuitsListPanel; // Panel to display circuit list
+    
+    // Drag-and-drop fields
+    private String draggedComponentType = null;
+    private Point dragStartPoint = null;
+    private Point currentDragPoint = null;
+    private boolean isDragging = false;
+    private boolean isOverlapping = false; // Track if drag position overlaps with existing component
     
     public mainPanel() {
         this.service = CircuitService.getInstance();
@@ -67,11 +75,13 @@ public class mainPanel extends JPanel {
         bottomPanel.add(circuitCountTitle);
         bottomPanel.add(circuitCount);
         
-        // Add button listeners
-        andBtn.addActionListener(e -> addGate("AND"));
-        orBtn.addActionListener(e -> addGate("OR"));
-        notBtn.addActionListener(e -> addGate("NOT"));
-        ledBtn.addActionListener(e -> addLED());
+        // Add drag-and-drop listeners for component buttons
+        setupDragAndDrop(andBtn, "AND");
+        setupDragAndDrop(orBtn, "OR");
+        setupDragAndDrop(notBtn, "NOT");
+        setupDragAndDrop(ledBtn, "LED");
+        
+        // Keep connector as click button
         connectorBtn.addActionListener(e -> activateConnectorMode());
         simulateBtn.addActionListener(e -> showSimulationDialog());
         analyzeBtn.addActionListener(e -> showTruthTable());
@@ -80,7 +90,7 @@ public class mainPanel extends JPanel {
         JPanel sideBtnsPanel  = new JPanel(new BorderLayout());
         
         // Add scroll pane for circuits list
-        JPanel circuitsListPanel = new JPanel();
+        circuitsListPanel = new JPanel();
         circuitsListPanel.setLayout(new BoxLayout(circuitsListPanel, BoxLayout.Y_AXIS));
         circuitsListPanel.setBackground(Color.WHITE);
         
@@ -98,19 +108,118 @@ public class mainPanel extends JPanel {
         add(sideBtnsPanel, BorderLayout.EAST);
     }
     
+    /**
+     * Setup drag-and-drop functionality for a component button
+     */
+    private void setupDragAndDrop(JButton button, String componentType) {
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                // Start drag operation
+                draggedComponentType = componentType;
+                dragStartPoint = e.getPoint();
+                isDragging = false; // Not dragging until mouse moves
+            }
+            
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (isDragging && draggedComponentType != null) {
+                    // Convert button coordinates to canvas coordinates
+                    Point canvasPoint = SwingUtilities.convertPoint(button, e.getPoint(), circuitCanvas);
+                    
+                    // Check if released over canvas
+                    if (canvasPoint.x >= 0 && canvasPoint.y >= 0 && 
+                        canvasPoint.x < circuitCanvas.getWidth() && 
+                        canvasPoint.y < circuitCanvas.getHeight()) {
+                        
+                        // Check for overlap before placing
+                        Rectangle newBounds = new Rectangle(canvasPoint.x - 75, canvasPoint.y - 40, 150, 80);
+                        if (!circuitCanvas.checkOverlap(newBounds, null)) {
+                            // Place component at drop location only if no overlap
+                            if (draggedComponentType.equals("LED")) {
+                                circuitCanvas.addLED(canvasPoint.x - 75, canvasPoint.y - 40);
+                            } else {
+                                circuitCanvas.addGate(draggedComponentType, canvasPoint.x - 75, canvasPoint.y - 40);
+                            }
+                            updateCircuitCount();
+                        } else {
+                            // Show message that placement was blocked
+                            JOptionPane.showMessageDialog(mainPanel.this, 
+                                "Cannot place component here - overlaps with existing component!",
+                                "Invalid Placement", 
+                                JOptionPane.WARNING_MESSAGE);
+                        }
+                    }
+                }
+                
+                // Reset drag state
+                draggedComponentType = null;
+                dragStartPoint = null;
+                currentDragPoint = null;
+                isDragging = false;
+                isOverlapping = false;
+                repaint();
+            }
+        });
+        
+        button.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                if (draggedComponentType != null) {
+                    isDragging = true;
+                    // Update drag position for visual feedback
+                    currentDragPoint = SwingUtilities.convertPoint(button, e.getPoint(), mainPanel.this);
+                    
+                    // Check for overlap with existing components
+                    Point canvasPoint = SwingUtilities.convertPoint(button, e.getPoint(), circuitCanvas);
+                    Rectangle dragBounds = new Rectangle(canvasPoint.x - 75, canvasPoint.y - 40, 150, 80);
+                    isOverlapping = circuitCanvas.checkOverlap(dragBounds, null);
+                    
+                    repaint();
+                }
+            }
+        });
+    }
+    
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        
+        // Draw ghost component during drag
+        if (isDragging && currentDragPoint != null && draggedComponentType != null) {
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+            
+            // Draw a simple representation of the component being dragged
+            // Red if overlapping, blue if valid placement
+            if (isOverlapping) {
+                g2d.setColor(new Color(255, 100, 100)); // Red for invalid
+            } else {
+                g2d.setColor(new Color(100, 150, 255)); // Blue for valid
+            }
+            g2d.fillRect(currentDragPoint.x - 75, currentDragPoint.y - 40, 150, 80);
+            
+            if (isOverlapping) {
+                g2d.setColor(new Color(200, 0, 0)); // Dark red border
+            } else {
+                g2d.setColor(Color.BLUE);
+            }
+            g2d.setStroke(new BasicStroke(2));
+            g2d.drawRect(currentDragPoint.x - 75, currentDragPoint.y - 40, 150, 80);
+            
+            // Draw component type label
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("Arial", Font.BOLD, 16));
+            FontMetrics fm = g2d.getFontMetrics();
+            int textWidth = fm.stringWidth(draggedComponentType);
+            g2d.drawString(draggedComponentType, 
+                currentDragPoint.x - textWidth/2, 
+                currentDragPoint.y + 5);
+        }
+    }
+    
   
-    private void addGate(String gateType) {
-        circuitCanvas.addGate(gateType);
-        updateCircuitCount();
-    }
-    
-   
-    private void addLED() {
-        circuitCanvas.addLED();
-        updateCircuitCount();
-    }
-    
- 
     private void activateConnectorMode() {
         circuitCanvas.toggleConnectorMode();
     }
@@ -357,6 +466,36 @@ public class mainPanel extends JPanel {
 
     public CircuitCanvas getCircuitCanvas() {
         return circuitCanvas;
+    }
+    
+    /**
+     * Update the circuit list panel with all circuits from the service
+     */
+    public void updateCircuitList() {
+        circuitsListPanel.removeAll();
+        
+        java.util.List<org.scd.business.model.Circuit> circuits = service.getAllCircuits();
+        
+        for (org.scd.business.model.Circuit circuit : circuits) {
+            JButton circuitButton = new JButton(circuit.getCircuitName());
+            circuitButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+            circuitButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            // Highlight current circuit
+            if (circuit == service.getCurrentCircuit()) {
+                circuitButton.setBackground(new Color(200, 230, 255));
+                circuitButton.setOpaque(true);
+            }
+            
+            // Note: Circuit switching functionality will be added later
+            // For now, just display the circuit names
+            
+            circuitsListPanel.add(circuitButton);
+            circuitsListPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        }
+        
+        circuitsListPanel.revalidate();
+        circuitsListPanel.repaint();
     }
     
     public void setProjectName(String name) {

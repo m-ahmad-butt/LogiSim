@@ -58,7 +58,8 @@ public class GateComponent extends JPanel {
     private void initComponent() {
         // Initialize UI helpers for inputs
         this.input1 = new ComponentInput(0);
-        if (!service.getGateType(componentId).equals("NOT")) {
+        String gateType = service.getGateType(componentId);
+        if (gateType != null && !gateType.equals("NOT")) {
             this.input2 = new ComponentInput(1);
         }
         
@@ -72,7 +73,9 @@ public class GateComponent extends JPanel {
         setBackground(Color.WHITE);
         setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1));
         
-        // Add mouse listeners
+        // Add mouse listeners for clicking and dragging
+        final Point[] dragOffset = {null};
+        
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -82,6 +85,52 @@ public class GateComponent extends JPanel {
                     Container parent = getParent();
                     if (parent instanceof CircuitCanvas) {
                         ((CircuitCanvas) parent).handleComponentClick(GateComponent.this);
+                    }
+                }
+            }
+            
+            @Override
+            public void mousePressed(MouseEvent e) {
+                // Store offset for smooth dragging
+                dragOffset[0] = e.getPoint();
+            }
+            
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                dragOffset[0] = null;
+            }
+        });
+        
+        addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (dragOffset[0] != null) {
+                    // Calculate new position
+                    Point parentPoint = SwingUtilities.convertPoint(GateComponent.this, e.getPoint(), getParent());
+                    int newX = parentPoint.x - dragOffset[0].x;
+                    int newY = parentPoint.y - dragOffset[0].y;
+                    
+                    // Check for overlap before moving
+                    Container parent = getParent();
+                    if (parent instanceof CircuitCanvas) {
+                        CircuitCanvas canvas = (CircuitCanvas) parent;
+                        Rectangle newBounds = new Rectangle(newX, newY, getWidth(), getHeight());
+                        
+                        // Only move if no overlap (excluding self)
+                        if (!canvas.checkOverlap(newBounds, GateComponent.this)) {
+                            // Update position
+                            setLocation(newX, newY);
+                            
+                            // Update row/column for wire routing
+                            int col = (newX - 20 + 25) / (150 + 50);
+                            int row = (newY - 20 + 40) / (80 + 80);
+                            col = Math.max(0, col);
+                            row = Math.max(0, row);
+                            setRowColumn(row, col);
+                            
+                            // Repaint canvas to update wires
+                            canvas.repaint();
+                        }
                     }
                 }
             }
@@ -104,7 +153,8 @@ public class GateComponent extends JPanel {
         inputPanel.add(Box.createVerticalGlue());
         inputPanel.add(input1Label);
         
-        if (!service.getGateType(componentId).equals("NOT")) {
+        String gateType = service.getGateType(componentId);
+        if (gateType != null && !gateType.equals("NOT")) {
             inputPanel.add(Box.createRigidArea(new Dimension(0, 10)));
             input2Label = new JLabel("-");
             input2Label.setFont(new Font("Arial", Font.BOLD, 14));
@@ -147,6 +197,11 @@ public class GateComponent extends JPanel {
     private void drawGateImage(Graphics g) {
         String imagePath = null;
         String gateType = service.getGateType(componentId);
+        
+        if (gateType == null) {
+            // Gate doesn't exist in current circuit
+            return;
+        }
         
         // Get appropriate image path based on gate type
         if (gateType.equals("AND")) {
@@ -195,6 +250,11 @@ public class GateComponent extends JPanel {
 
     private void handleDoubleClick() {
         String gateType = service.getGateType(componentId);
+        if (gateType == null) {
+            // Gate doesn't exist in current circuit
+            return;
+        }
+        
         if (gateType.equals("NOT")) {
             // NOT gate: only ask for one input if not connected
             if (!service.isInputConnected(componentId, 0)) {
@@ -332,7 +392,8 @@ public class GateComponent extends JPanel {
     }
     
     public String getGateType() {
-        return service.getGateType(componentId);
+        String gateType = service.getGateType(componentId);
+        return gateType != null ? gateType : "UNKNOWN";
     }
     
     public ComponentInput getInput1() {
@@ -368,24 +429,26 @@ public class GateComponent extends JPanel {
     }
     
     public Point getOutputPoint() {
-        return new Point(service.getComponentPositionX(componentId) + 150, 
-                        service.getComponentPositionY(componentId) + 40);
+        return new Point(getX() + 150, getY() + 40);
     }
     
     public Point getInput1Point() {
-        if (service.getGateType(componentId).equals("NOT")) {
-            return new Point(service.getComponentPositionX(componentId), 
-                           service.getComponentPositionY(componentId) + 40);
+        String gateType = service.getGateType(componentId);
+        if (gateType == null) {
+            // Gate doesn't exist in current circuit, return default point
+            return new Point(getX(), getY() + 40);
+        }
+        
+        if (gateType.equals("NOT")) {
+            return new Point(getX(), getY() + 40);
         } else {
-            return new Point(service.getComponentPositionX(componentId), 
-                           service.getComponentPositionY(componentId) + 25);
+            return new Point(getX(), getY() + 25);
         }
     }
     
     public Point getInput2Point() {
         if (input2 != null) {
-            return new Point(service.getComponentPositionX(componentId), 
-                           service.getComponentPositionY(componentId) + 55);
+            return new Point(getX(), getY() + 55);
         }
         return null;
     }

@@ -67,16 +67,13 @@ public class CircuitCanvas extends JPanel {
         repaint();
     }
     
- 
+  
     public void addGate(String gateType) {
-        // Calculate position
+        // Calculate position using grid
         int x = currentX + (currentColumn * (gateWidth + horizontalSpacing));
         int y = currentY + (currentRow * (gateHeight + verticalSpacing));
         
-        GateComponent gate = new GateComponent(gateType, x, y);
-        gate.setRowColumn(currentRow, currentColumn); // Store row/column info
-        gates.add(gate);
-        add(gate);
+        addGate(gateType, x, y);
         
         // Update position for next gate
         currentColumn++;
@@ -100,20 +97,34 @@ public class CircuitCanvas extends JPanel {
             setPreferredSize(new Dimension(800, requiredHeight));
             revalidate();
         }
+    }
+    
+    /**
+     * Add gate at specific coordinates (for drag-and-drop)
+     */
+    public void addGate(String gateType, int x, int y) {
+        GateComponent gate = new GateComponent(gateType, x, y);
+        
+        // Calculate row/column from position for wire routing
+        int col = (x - currentX + (horizontalSpacing / 2)) / (gateWidth + horizontalSpacing);
+        int row = (y - currentY + (verticalSpacing / 2)) / (gateHeight + verticalSpacing);
+        col = Math.max(0, col);
+        row = Math.max(0, row);
+        
+        gate.setRowColumn(row, col);
+        gates.add(gate);
+        add(gate);
         
         repaint();
     }
     
   
     public void addLED() {
-        // Calculate position
+        // Calculate position using grid
         int x = currentX + (currentColumn * (gateWidth + horizontalSpacing));
         int y = currentY + (currentRow * (gateHeight + verticalSpacing));
         
-        LEDComponent led = new LEDComponent(x, y);
-        led.setRowColumn(currentRow, currentColumn); // Store row/column info
-        leds.add(led);
-        add(led);
+        addLED(x, y);
         
         // Update position for next component
         currentColumn++;
@@ -137,10 +148,56 @@ public class CircuitCanvas extends JPanel {
             setPreferredSize(new Dimension(800, requiredHeight));
             revalidate();
         }
+    }
+    
+    /**
+     * Add LED at specific coordinates (for drag-and-drop)
+     */
+    public void addLED(int x, int y) {
+        LEDComponent led = new LEDComponent(x, y);
+        
+        // Calculate row/column from position for wire routing
+        int col = (x - currentX + (horizontalSpacing / 2)) / (gateWidth + horizontalSpacing);
+        int row = (y - currentY + (verticalSpacing / 2)) / (gateHeight + verticalSpacing);
+        col = Math.max(0, col);
+        row = Math.max(0, row);
+        
+        led.setRowColumn(row, col);
+        leds.add(led);
+        add(led);
         
         repaint();
     }
     
+    /**
+     * Check if a rectangle overlaps with any existing components
+     * @param bounds The rectangle to check
+     * @param excludeComponent Component to exclude from check (for repositioning)
+     * @return true if overlaps, false otherwise
+     */
+    public boolean checkOverlap(Rectangle bounds, Object excludeComponent) {
+        // Check overlap with gates
+        for (GateComponent gate : gates) {
+            if (gate != excludeComponent) {
+                Rectangle gateBounds = gate.getBounds();
+                if (bounds.intersects(gateBounds)) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check overlap with LEDs
+        for (LEDComponent led : leds) {
+            if (led != excludeComponent) {
+                Rectangle ledBounds = led.getBounds();
+                if (bounds.intersects(ledBounds)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
  
     public void setConnectorMode(boolean enabled) {
         this.connectorMode = enabled;

@@ -10,6 +10,7 @@ import java.util.Map;
 public class CircuitService {
     private static CircuitService instance;
     private Circuit currentCircuit;
+    private List<Circuit> allCircuits; // Track all circuits in the project
     
     // Component ID management
     private int componentIdCounter = 0;
@@ -21,6 +22,7 @@ public class CircuitService {
     
     private CircuitService() {
         currentCircuit = new Circuit();
+        allCircuits = new ArrayList<>();
         uiComponentMap = new HashMap<>();
     }
     
@@ -34,6 +36,7 @@ public class CircuitService {
    
     public Circuit createNewCircuit(String name) {
         currentCircuit = new Circuit(generateCircuitId(), name);
+        allCircuits.add(currentCircuit);
         componentIdCounter = 0;
         connectorIdCounter = 0;
         uiComponentMap.clear();
@@ -261,6 +264,7 @@ public class CircuitService {
    
     public void clearCircuit() {
         currentCircuit = new Circuit();
+        allCircuits.clear();
         componentIdCounter = 0;
         connectorIdCounter = 0;
         uiComponentMap.clear();
@@ -398,6 +402,14 @@ public class CircuitService {
     public boolean getLEDState(int ledId) {
         LED led = findLED(ledId);
         return led != null && led.isOn();
+    }
+    
+    /**
+     * Get all circuits in the current project
+     * @return List of all circuits
+     */
+    public List<Circuit> getAllCircuits() {
+        return new ArrayList<>(allCircuits);
     }
     
     private int generateComponentId() {

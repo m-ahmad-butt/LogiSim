@@ -56,7 +56,9 @@ public class LEDComponent extends JLabel {
         setOpaque(true);
         setBackground(Color.WHITE);
         
-        // Add click listener for connector mode
+        // Add click and drag listeners
+        final Point[] dragOffset = {null};
+        
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -64,6 +66,54 @@ public class LEDComponent extends JLabel {
                 Container parent = getParent();
                 if (parent instanceof CircuitCanvas) {
                     ((CircuitCanvas) parent).handleComponentClick(LEDComponent.this);
+                }
+            }
+            
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                // Store offset for smooth dragging
+                dragOffset[0] = e.getPoint();
+            }
+            
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                dragOffset[0] = null;
+            }
+        });
+        
+        addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                if (dragOffset[0] != null) {
+                    // Calculate new position
+                    Point parentPoint = SwingUtilities.convertPoint(LEDComponent.this, e.getPoint(), getParent());
+                    int newX = parentPoint.x - dragOffset[0].x;
+                    int newY = parentPoint.y - dragOffset[0].y;
+                    
+                    // Check for overlap before moving
+                    Container parent = getParent();
+                    if (parent instanceof CircuitCanvas) {
+                        CircuitCanvas canvas = (CircuitCanvas) parent;
+                        Rectangle newBounds = new Rectangle(newX, newY, getWidth(), getHeight());
+                        
+                        // Only move if no overlap (excluding self)
+                        if (!canvas.checkOverlap(newBounds, LEDComponent.this)) {
+                            // Update position
+                            setLocation(newX, newY);
+                            positionX = newX;
+                            positionY = newY;
+                            
+                            // Update row/column for wire routing
+                            int col = (newX - 20 + 25) / (150 + 50);
+                            int row = (newY - 20 + 40) / (80 + 80);
+                            col = Math.max(0, col);
+                            row = Math.max(0, row);
+                            setRowColumn(row, col);
+                            
+                            // Repaint canvas to update wires
+                            canvas.repaint();
+                        }
+                    }
                 }
             }
         });
@@ -159,7 +209,7 @@ public class LEDComponent extends JLabel {
     }
     
     public Point getInputPoint() {
-        // Input point is on the left side of the LED
-        return new Point(positionX, positionY + 30);
+        // Input point is at the bottom center of the LED
+        return new Point(positionX + 30, positionY + 60);
     }
 }
