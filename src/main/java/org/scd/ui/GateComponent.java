@@ -25,6 +25,9 @@ public class GateComponent extends JPanel {
     private JLabel input2Label;
     private JLabel outputLabel;
     
+    // Store original border for reset
+    private Color originalBorderColor = Color.LIGHT_GRAY;
+    
     public GateComponent(String gateType, int x, int y) {
         this.service = CircuitService.getInstance();
         
@@ -451,5 +454,19 @@ public class GateComponent extends JPanel {
             return new Point(getX(), getY() + 55);
         }
         return null;
+    }
+    
+    /**
+     * Highlight this component with a green border to indicate it's selected as source
+     */
+    public void setSelectedAsSrc() {
+        setBorder(BorderFactory.createLineBorder(Color.GREEN, 3));
+    }
+    
+    /**
+     * Reset border to original color
+     */
+    public void resetBorder() {
+        setBorder(BorderFactory.createLineBorder(originalBorderColor, 1));
     }
 }

@@ -206,6 +206,9 @@ public class CircuitCanvas extends JPanel {
             JOptionPane.showMessageDialog(this, 
                 "Connector Mode: Click on a source gate, then click on a target component");
         } else {
+            if (selectedSource != null) {
+                selectedSource.resetBorder();
+            }
             selectedSource = null;
             JOptionPane.showMessageDialog(this, 
                 "Connector Mode Disabled");
@@ -234,6 +237,8 @@ public class CircuitCanvas extends JPanel {
                 GateComponent clickedGate = (GateComponent) component;
                 if (clickedGate.getOutput() != null) {
                     selectedSource = clickedGate;
+                    // Highlight with green border
+                    selectedSource.setSelectedAsSrc();
                     JOptionPane.showMessageDialog(this, 
                         "Source selected: " + clickedGate.getGateType() + " Gate " + clickedGate.getComponentId() + 
                         "\nNow select the destination component");
@@ -254,7 +259,8 @@ public class CircuitCanvas extends JPanel {
                 connectToLED(selectedSource, clickedLED);
             }
             
-            // Reset connector mode
+            // Reset border and connector mode
+            selectedSource.resetBorder();
             selectedSource = null;
             connectorMode = false;
         }

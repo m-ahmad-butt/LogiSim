@@ -17,6 +17,9 @@ public class LEDComponent extends JLabel {
     private int row;    // Row position in grid
     private int column; // Column position in grid
     
+    // Store original border for reset
+    private Color originalBorderColor = Color.LIGHT_GRAY;
+    
     public LEDComponent(int x, int y) {
         this.service = CircuitService.getInstance();
         this.positionX = x;
@@ -55,6 +58,7 @@ public class LEDComponent extends JLabel {
         // Make the component opaque with white background
         setOpaque(true);
         setBackground(Color.WHITE);
+        setBorder(BorderFactory.createLineBorder(originalBorderColor, 1));
         
         // Add click and drag listeners
         final Point[] dragOffset = {null};
@@ -211,5 +215,19 @@ public class LEDComponent extends JLabel {
     public Point getInputPoint() {
         // Input point is at the bottom center of the LED
         return new Point(positionX + 30, positionY + 60);
+    }
+    
+    /**
+     * Highlight this component with a green border to indicate it's selected as source
+     */
+    public void setSelectedAsSrc() {
+        setBorder(BorderFactory.createLineBorder(Color.GREEN, 3));
+    }
+    
+    /**
+     * Reset border to original color
+     */
+    public void resetBorder() {
+        setBorder(BorderFactory.createLineBorder(originalBorderColor, 1));
     }
 }

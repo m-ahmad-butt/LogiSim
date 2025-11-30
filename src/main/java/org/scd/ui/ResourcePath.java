@@ -53,4 +53,13 @@ public class ResourcePath {
     public void setLedBasePath(String path) {
         this.ledBasePath = path;
     }
+    
+    // Connector image paths
+    public String getConnectorOff() {
+        return "Connector/State_off.png";
+    }
+    
+    public String getConnectorOn() {
+        return "Connector/State_on.png";
+    }
 }

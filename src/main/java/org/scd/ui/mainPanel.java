@@ -32,16 +32,46 @@ public class mainPanel extends JPanel {
         JButton andBtn = new JButton("AND");
         JButton orBtn = new JButton("OR");
         JButton notBtn = new JButton("NOT");
-        JButton connectorBtn = new JButton("Connector");
         JButton ledBtn = new JButton("LED");
         upperLeftPanel.add(andBtn);
         upperLeftPanel.add(orBtn);
         upperLeftPanel.add(notBtn);
-        upperLeftPanel.add(connectorBtn);
         upperLeftPanel.add(ledBtn);
 
        JPanel upperRightPanel = new JPanel();
        upperRightPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
+       
+       JToggleButton connectorBtn = new JToggleButton();
+       try {
+           java.net.URL offUrl = getClass().getClassLoader().getResource(ResourcePath.getInstance().getConnectorOff());
+           java.net.URL onUrl = getClass().getClassLoader().getResource(ResourcePath.getInstance().getConnectorOn());
+           
+           if (offUrl != null && onUrl != null) {
+               // Increased width for better visibility
+               Image offImg = new ImageIcon(offUrl).getImage().getScaledInstance(50, 30, Image.SCALE_SMOOTH);
+               Image onImg = new ImageIcon(onUrl).getImage().getScaledInstance(50, 30, Image.SCALE_SMOOTH);
+               
+               connectorBtn.setIcon(new ImageIcon(offImg));
+               connectorBtn.setSelectedIcon(new ImageIcon(onImg));
+               connectorBtn.setPreferredSize(new Dimension(60, 40));
+               
+               // Make transparent
+               connectorBtn.setContentAreaFilled(false);
+               connectorBtn.setBorderPainted(false);
+               connectorBtn.setFocusPainted(false);
+               connectorBtn.setOpaque(false);
+           } else {
+               connectorBtn.setText("Conn");
+           }
+       } catch (Exception e) {
+           connectorBtn.setText("Conn");
+       }
+       connectorBtn.setToolTipText("Toggle Connector Mode");
+       
+       // Add label and button
+       upperRightPanel.add(new JLabel("Connector Mode: "));
+       upperRightPanel.add(connectorBtn);
+       
        JButton simulateBtn = new JButton("Simulate");
        JButton analyzeBtn = new JButton("Analyze");
        JLabel projectTitle = new JLabel("Project Name: ");
@@ -82,7 +112,8 @@ public class mainPanel extends JPanel {
         setupDragAndDrop(ledBtn, "LED");
         
         // Keep connector as click button
-        connectorBtn.addActionListener(e -> activateConnectorMode());
+        // Connector toggle listener
+        connectorBtn.addActionListener(e -> circuitCanvas.setConnectorMode(connectorBtn.isSelected()));
         simulateBtn.addActionListener(e -> showSimulationDialog());
         analyzeBtn.addActionListener(e -> showTruthTable());
         
