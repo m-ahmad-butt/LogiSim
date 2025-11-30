@@ -19,6 +19,11 @@ public class ProjectService {
         }
     }
 
+    // Constructor for testing
+    public ProjectService(daoInterface dao) {
+        this.dao = dao;
+    }
+
     public boolean saveProject(Project project) {
         if (dao != null) {
             return dao.saveProject(project);

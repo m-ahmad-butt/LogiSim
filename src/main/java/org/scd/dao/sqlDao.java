@@ -18,6 +18,14 @@ public class sqlDao implements daoInterface {
     }
 
     /**
+     * Constructor for dependency injection (testing)
+     * @param conn Database connection
+     */
+    public sqlDao(Connection conn) {
+        this.conn = conn;
+    }
+
+    /**
      * saves project in sql database
      * @param project Object of Project model class
      * @return true if operation was successful, false otherwise

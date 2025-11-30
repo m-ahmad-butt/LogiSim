@@ -43,7 +43,7 @@ public class sqlSetup {
         return conn;
     }
 
-    private static void createTables(Connection conn) throws SQLException {
+    public static void createTables(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             // Project Table
             stmt.execute("CREATE TABLE IF NOT EXISTS Project (" +
