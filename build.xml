@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="LogiSum" default="javadoc" basedir=".">
+
+<!-- javadoc -d doc -sourcepath src\main\java -subpackages org.scd.business.model -->
+    <target name="javadoc">
+        <javadoc destdir="doc"
+                 sourcepath="src/main/java"
+                 packagenames="org.scd.business.model"
+                 author="true"
+                 version="true"
+                 use="true">
+        </javadoc>
+    </target>
+
+</project>
