@@ -35,7 +35,11 @@ public class CircuitCanvas extends JPanel {
     
     // Connector mode
     private boolean connectorMode = false;
+    private boolean deleteMode = false;
     private GateComponent selectedSource = null;
+    
+    // Callback for component count updates
+    private Runnable onComponentCountChange;
     
     public CircuitCanvas() {
         this.service = CircuitService.getInstance();
@@ -202,6 +206,7 @@ public class CircuitCanvas extends JPanel {
     public void setConnectorMode(boolean enabled) {
         this.connectorMode = enabled;
         if (enabled) {
+            this.deleteMode = false; // Mutually exclusive
             selectedSource = null;
         } else {
             if (selectedSource != null) {
@@ -211,9 +216,24 @@ public class CircuitCanvas extends JPanel {
         }
     }
     
+    public void setDeleteMode(boolean enabled) {
+        this.deleteMode = enabled;
+        if (enabled) {
+            this.connectorMode = false; // Mutually exclusive
+            if (selectedSource != null) {
+                selectedSource.resetBorder();
+                selectedSource = null;
+            }
+        }
+    }
+    
    
     public void toggleConnectorMode() {
         setConnectorMode(!connectorMode);
+    }
+    
+    public void toggleDeleteMode() {
+        setDeleteMode(!deleteMode);
     }
     
    
@@ -221,8 +241,21 @@ public class CircuitCanvas extends JPanel {
         return connectorMode;
     }
     
+    public boolean isDeleteMode() {
+        return deleteMode;
+    }
+    
+    public void setOnComponentCountChange(Runnable onComponentCountChange) {
+        this.onComponentCountChange = onComponentCountChange;
+    }
+    
    
     public void handleComponentClick(Object component) {
+        if (deleteMode) {
+            handleDeleteClick(component);
+            return;
+        }
+        
         if (!connectorMode) {
             return;
         }
@@ -252,6 +285,64 @@ public class CircuitCanvas extends JPanel {
             selectedSource = null;
             // Connector mode stays enabled so user can make another connection
         }
+    }
+    
+    private void handleDeleteClick(Object component) {
+        if (component instanceof GateComponent) {
+            GateComponent gate = (GateComponent) component;
+            
+            // Remove from service
+            service.removeGate(gate.getComponentId());
+            
+            // Remove from UI list
+            gates.remove(gate);
+            
+            // Remove from panel
+            remove(gate);
+            
+            // Remove connected wires
+            removeConnectedWires(gate);
+            
+        } else if (component instanceof LEDComponent) {
+            LEDComponent led = (LEDComponent) component;
+            
+            // Remove from service
+            service.removeLED(led.getComponentId());
+            
+            // Remove from UI list
+            leds.remove(led);
+            
+            // Remove from panel
+            remove(led);
+            
+            // Remove connected wires
+            removeConnectedWires(led);
+        }
+        
+        // Notify listener about count change
+        if (onComponentCountChange != null) {
+            onComponentCountChange.run();
+        }
+        
+        repaint();
+    }
+    
+    private void removeConnectedWires(Object component) {
+        List<WireConnection> wiresToRemove = new ArrayList<>();
+        
+        for (WireConnection wire : wires) {
+            if (wire.getSourceGate() == component || wire.getTargetComponent() == component) {
+                wiresToRemove.add(wire);
+                
+                // Also remove from service
+                // Note: We don't have direct mapping from WireConnection to Connector ID easily available
+                // But we can clean up connectors in service that reference this component
+                // Actually, service.removeGate/removeLED should handle cleaning up connectors in the model
+                // But we need to clean up UI wires
+            }
+        }
+        
+        wires.removeAll(wiresToRemove);
     }
     
   

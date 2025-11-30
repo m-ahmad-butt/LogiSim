@@ -46,6 +46,8 @@ public class mainPanel extends JPanel {
        upperRightPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
        
        JToggleButton connectorBtn = new JToggleButton();
+       JToggleButton deleteBtn = new JToggleButton();
+       
        try {
            java.net.URL offUrl = getClass().getClassLoader().getResource(ResourcePath.getInstance().getConnectorOff());
            java.net.URL onUrl = getClass().getClassLoader().getResource(ResourcePath.getInstance().getConnectorOn());
@@ -55,24 +57,37 @@ public class mainPanel extends JPanel {
                Image offImg = new ImageIcon(offUrl).getImage().getScaledInstance(50, 30, Image.SCALE_SMOOTH);
                Image onImg = new ImageIcon(onUrl).getImage().getScaledInstance(50, 30, Image.SCALE_SMOOTH);
                
+               // Setup Connector Button
                connectorBtn.setIcon(new ImageIcon(offImg));
                connectorBtn.setSelectedIcon(new ImageIcon(onImg));
                connectorBtn.setPreferredSize(new Dimension(60, 40));
-               
-               // Make transparent
                connectorBtn.setContentAreaFilled(false);
                connectorBtn.setBorderPainted(false);
                connectorBtn.setFocusPainted(false);
                connectorBtn.setOpaque(false);
+               
+               // Setup Delete Button (same images)
+               deleteBtn.setIcon(new ImageIcon(offImg));
+               deleteBtn.setSelectedIcon(new ImageIcon(onImg));
+               deleteBtn.setPreferredSize(new Dimension(60, 40));
+               deleteBtn.setContentAreaFilled(false);
+               deleteBtn.setBorderPainted(false);
+               deleteBtn.setFocusPainted(false);
+               deleteBtn.setOpaque(false);
            } else {
                connectorBtn.setText("Conn");
+               deleteBtn.setText("Del");
            }
        } catch (Exception e) {
            connectorBtn.setText("Conn");
+           deleteBtn.setText("Del");
        }
        connectorBtn.setToolTipText("Toggle Connector Mode");
+       deleteBtn.setToolTipText("Toggle Delete Mode");
        
        // Add label and button
+       upperRightPanel.add(new JLabel("Delete Mode: "));
+       upperRightPanel.add(deleteBtn);
        upperRightPanel.add(new JLabel("Connector Mode: "));
        upperRightPanel.add(connectorBtn);
        
@@ -94,6 +109,10 @@ public class mainPanel extends JPanel {
         
         // Create circuit canvas with scroll pane
         circuitCanvas = new CircuitCanvas();
+        
+        // Set callback for component count updates (e.g. after deletion)
+        circuitCanvas.setOnComponentCountChange(this::updateCircuitCount);
+        
         JScrollPane circuitScrollPane = new JScrollPane(circuitCanvas);
         circuitScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         circuitScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -117,7 +136,22 @@ public class mainPanel extends JPanel {
         
         // Keep connector as click button
         // Connector toggle listener
-        connectorBtn.addActionListener(e -> circuitCanvas.setConnectorMode(connectorBtn.isSelected()));
+        connectorBtn.addActionListener(e -> {
+            boolean isSelected = connectorBtn.isSelected();
+            circuitCanvas.setConnectorMode(isSelected);
+            if (isSelected) {
+                deleteBtn.setSelected(false); // Mutually exclusive
+            }
+        });
+        
+        // Delete toggle listener
+        deleteBtn.addActionListener(e -> {
+            boolean isSelected = deleteBtn.isSelected();
+            circuitCanvas.setDeleteMode(isSelected);
+            if (isSelected) {
+                connectorBtn.setSelected(false); // Mutually exclusive
+            }
+        });
         simulateBtn.addActionListener(e -> showSimulationDialog());
         analyzeBtn.addActionListener(e -> showTruthTable());
         
