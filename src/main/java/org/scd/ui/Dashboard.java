@@ -322,7 +322,13 @@ public class Dashboard extends JFrame {
         // Create new circuit
         org.scd.business.model.Circuit newCircuit = circuitService.createNewCircuit(circuitName.trim());
         
-        // Update circuit list in mainPanel
+        // Switch to the new circuit
+        circuitService.switchToCircuit(newCircuit);
+        
+        // Clear and reload canvas for the new (empty) circuit
+        mainPage.getCircuitCanvas().clearCanvas();
+        
+        // Update circuit list in mainPanel to show new circuit as selected
         mainPage.updateCircuitList();
         
         JOptionPane.showMessageDialog(this, 
