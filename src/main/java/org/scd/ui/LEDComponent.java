@@ -96,6 +96,12 @@ public class LEDComponent extends JLabel {
     }
     
   
+    public void updateImage() {
+        // Get state from service
+        this.isOn = service.getLEDState(this.componentId);
+        loadImage(this.isOn);
+    }
+    
     public void updateState() {
         Integer inputValue = input.getValue();
         if (inputValue != null) {

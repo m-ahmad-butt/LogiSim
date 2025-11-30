@@ -57,6 +57,16 @@ public class CircuitCanvas extends JPanel {
         setPreferredSize(new Dimension(1800, 1000));
     }
     
+    public void refreshCircuit() {
+        for (GateComponent gate : gates) {
+            gate.updateImage();
+        }
+        for (LEDComponent led : leds) {
+            led.updateImage();
+        }
+        repaint();
+    }
+    
  
     public void addGate(String gateType) {
         // Calculate position

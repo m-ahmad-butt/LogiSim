@@ -197,16 +197,22 @@ public class GateComponent extends JPanel {
         String gateType = service.getGateType(componentId);
         if (gateType.equals("NOT")) {
             // NOT gate: only ask for one input if not connected
-            if (!input1.isConnected()) {
+            if (!service.isInputConnected(componentId, 0)) {
                 String result = JOptionPane.showInputDialog(this, 
                     "Enter input value (0 or 1) for " + gateType + " Gate " + componentId + ":");
                 if (result != null) {
                     try {
                         int val = Integer.parseInt(result.trim());
                         if (val == 0 || val == 1) {
-                            input1.setValue(val);
-                            calculateOutput();
-                            updateImage();
+                            service.setGateInput(componentId, 0, val, null);
+                            
+                            // Refresh entire circuit
+                            Container parent = getParent();
+                            if (parent instanceof CircuitCanvas) {
+                                ((CircuitCanvas) parent).refreshCircuit();
+                            } else {
+                                updateImage();
+                            }
                         } else {
                             JOptionPane.showMessageDialog(this, "Please enter 0 or 1");
                         }
@@ -220,22 +226,25 @@ public class GateComponent extends JPanel {
         } else {
             // AND/OR gate: ask for inputs that are not connected
             List<String> inputsNeeded = new ArrayList<>();
-            if (!input1.isConnected()) inputsNeeded.add("Input 1");
-            if (!input2.isConnected()) inputsNeeded.add("Input 2");
+            if (!service.isInputConnected(componentId, 0)) inputsNeeded.add("Input 1");
+            if (!service.isInputConnected(componentId, 1)) inputsNeeded.add("Input 2");
             
             if (inputsNeeded.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Both inputs are already connected!");
                 return;
             }
             
-            if (!input1.isConnected()) {
+            boolean changed = false;
+            
+            if (!service.isInputConnected(componentId, 0)) {
                 String result = JOptionPane.showInputDialog(this, 
                     "Enter Input 1 value (0 or 1) for " + gateType + " Gate " + getComponentId() + ":");
                 if (result != null) {
                     try {
                         int val = Integer.parseInt(result.trim());
                         if (val == 0 || val == 1) {
-                            input1.setValue(val);
+                            service.setGateInput(componentId, 0, val, null);
+                            changed = true;
                         } else {
                             JOptionPane.showMessageDialog(this, "Please enter 0 or 1");
                             return;
@@ -247,14 +256,15 @@ public class GateComponent extends JPanel {
                 }
             }
             
-            if (!input2.isConnected()) {
+            if (!service.isInputConnected(componentId, 1)) {
                 String result = JOptionPane.showInputDialog(this, 
                     "Enter Input 2 value (0 or 1) for " + gateType + " Gate " + getComponentId() + ":");
                 if (result != null) {
                     try {
                         int val = Integer.parseInt(result.trim());
                         if (val == 0 || val == 1) {
-                            input2.setValue(val);
+                            service.setGateInput(componentId, 1, val, null);
+                            changed = true;
                         } else {
                             JOptionPane.showMessageDialog(this, "Please enter 0 or 1");
                             return;
@@ -266,8 +276,15 @@ public class GateComponent extends JPanel {
                 }
             }
             
-            calculateOutput();
-            updateImage();
+            if (changed) {
+                // Refresh entire circuit
+                Container parent = getParent();
+                if (parent instanceof CircuitCanvas) {
+                    ((CircuitCanvas) parent).refreshCircuit();
+                } else {
+                    updateImage();
+                }
+            }
         }
     }
     
@@ -278,13 +295,13 @@ public class GateComponent extends JPanel {
         outputLabel.setText(output != null ? output.toString() : "-");
         outputLabel.setForeground(output != null ? (output == 1 ? Color.GREEN : Color.RED) : Color.BLACK);
         
-        // Update input labels
-        Integer val1 = input1.getValue();
+        // Update input labels from service
+        Integer val1 = service.getInputValue(componentId, 0);
         input1Label.setText(val1 != null ? val1.toString() : "-");
         input1Label.setForeground(val1 != null ? (val1 == 1 ? Color.GREEN : Color.RED) : Color.BLACK);
         
         if (input2 != null) {
-            Integer val2 = input2.getValue();
+            Integer val2 = service.getInputValue(componentId, 1);
             input2Label.setText(val2 != null ? val2.toString() : "-");
             input2Label.setForeground(val2 != null ? (val2 == 1 ? Color.GREEN : Color.RED) : Color.BLACK);
         }

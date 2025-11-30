@@ -128,7 +128,7 @@ public class CircuitService {
             if (input != null) {
                 input.setValue(value);
                 input.setSourceComponentId(sourceComponentId);
-                gate.calculate();
+                calculateCircuit();
             }
         }
     }
@@ -145,15 +145,63 @@ public class CircuitService {
     
    
     public void calculateCircuit() {
-        // First calculate all gates
-        for (Gate gate : currentCircuit.getGates()) {
-            gate.calculate();
+        // Propagate signals through wires first
+        boolean changed = true;
+        int maxIterations = 10; // Prevent infinite loops
+        int iterations = 0;
+        
+        while (changed && iterations < maxIterations) {
+            changed = propagateSignals();
+            
+            // Calculate all gates
+            for (Gate gate : currentCircuit.getGates()) {
+                Integer oldOutput = gate.getOutput();
+                gate.calculate();
+                Integer newOutput = gate.getOutput();
+                
+                if (oldOutput != newOutput && (oldOutput == null || !oldOutput.equals(newOutput))) {
+                    changed = true;
+                }
+            }
+            iterations++;
         }
         
-        // Then calculate LEDs
+        // Final calculation for LEDs
         for (LED led : currentCircuit.getLeds()) {
             led.calculate();
         }
+    }
+    
+    private boolean propagateSignals() {
+        boolean changed = false;
+        for (Connector connector : currentCircuit.getConnectors()) {
+            Integer sourceOutput = getComponentOutput(connector.getSourceComponentId());
+            
+            // Update target input
+            Gate targetGate = findGate(connector.getTargetComponentId());
+            if (targetGate != null) {
+                Input targetInput = (connector.getTargetInputIndex() == 0) ? 
+                                    targetGate.getInput1() : targetGate.getInput2();
+                
+                if (targetInput != null) {
+                    Integer currentValue = targetInput.getValue();
+                    if (currentValue != sourceOutput && (currentValue == null || !currentValue.equals(sourceOutput))) {
+                        targetInput.setValue(sourceOutput);
+                        changed = true;
+                    }
+                }
+            } else {
+                LED targetLED = findLED(connector.getTargetComponentId());
+                if (targetLED != null) {
+                    Integer currentValue = targetLED.getInput().getValue();
+                    if (currentValue != sourceOutput && (currentValue == null || !currentValue.equals(sourceOutput))) {
+                        targetLED.getInput().setValue(sourceOutput);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return changed;
     }
     
   
