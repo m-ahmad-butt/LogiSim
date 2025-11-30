@@ -90,6 +90,21 @@ public class CircuitService {
             color
         );
         currentCircuit.addConnector(connector);
+        
+        // Update target input connection
+        Gate targetGate = findGate(targetId);
+        if (targetGate != null) {
+            Input input = (targetInputIndex == 0) ? targetGate.getInput1() : targetGate.getInput2();
+            if (input != null) {
+                input.setSourceComponentId(sourceId);
+            }
+        } else {
+            LED targetLED = findLED(targetId);
+            if (targetLED != null) {
+                targetLED.getInput().setSourceComponentId(sourceId);
+            }
+        }
+        
         return connector;
     }
     

@@ -352,6 +352,13 @@ public class sqlDao implements daoInterface {
                 connector.setSourceComponentId(sourceGate.getComponentId());
                 connector.setTargetComponentId(sinkGate.getComponentId());
                 connectors.add(connector);
+                
+                // Update sink gate input connection
+                Input input = (connector.getTargetInputIndex() == 0) ? 
+                              sinkGate.getInput1() : sinkGate.getInput2();
+                if (input != null) {
+                    input.setSourceComponentId(sourceGate.getComponentId());
+                }
             }
         }
 
