@@ -42,11 +42,14 @@ public class SwitchComponent extends JLabel {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 // Notify parent for connector mode
+                // Notify parent for connector mode
                 Container parent = getParent();
                 if (parent instanceof CircuitCanvas) {
                     CircuitCanvas canvas = (CircuitCanvas) parent;
-                    // If NOT in connector mode, toggle the switch
-                    if (!canvas.isConnectorMode()) {
+                    
+                    if (canvas.isDeleteMode()) {
+                        canvas.handleComponentClick(SwitchComponent.this);
+                    } else if (!canvas.isConnectorMode()) {
                         toggle();
                     } else {
                         // In connector mode, handle connection
