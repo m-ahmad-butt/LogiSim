@@ -457,11 +457,41 @@ public class CircuitCanvas extends JPanel {
             if (source == component || wire.getTargetComponent() == component) {
                 wiresToRemove.add(wire);
                 
-                // Also remove from service
-                // Note: We don't have direct mapping from WireConnection to Connector ID easily available
-                // But we can clean up connectors in service that reference this component
-                // Actually, service.removeGate/removeLED/removeSwitch should handle cleaning up connectors in the model
-                // But we need to clean up UI wires
+                // Reset the target component's inputs (both UI and model)
+                Object target = wire.getTargetComponent();
+                if (target != null) {
+                    if (target instanceof GateComponent) {
+                        GateComponent targetGate = (GateComponent) target;
+                        int targetInputIndex = wire.getTargetInputIndex();
+                        
+                        // Reset UI input
+                        if (targetInputIndex == 0) {
+                            targetGate.getInput1().setSourceComponent(null);
+                            targetGate.getInput1().setValue(null);
+                        } else if (targetInputIndex == 1 && targetGate.getInput2() != null) {
+                            targetGate.getInput2().setSourceComponent(null);
+                            targetGate.getInput2().setValue(null);
+                        }
+                        
+                        // Reset model input
+                        service.setGateInput(targetGate.getComponentId(), targetInputIndex, null, null);
+                        
+                        // Recalculate and update
+                        targetGate.calculateOutput();
+                        targetGate.updateImage();
+                    } else if (target instanceof LEDComponent) {
+                        LEDComponent targetLED = (LEDComponent) target;
+                        
+                        // Reset UI input
+                        targetLED.getInput().setSourceComponent(null);
+                        targetLED.getInput().setValue(null);
+                        
+                        // Reset model input
+                        service.setLEDInput(targetLED.getComponentId(), null, null);
+                        
+                        targetLED.updateState();
+                    }
+                }
             }
         }
         
@@ -1024,8 +1054,16 @@ public class CircuitCanvas extends JPanel {
             maxY = Math.max(maxY, led.getY() + led.getHeight());
         }
         
+        // Find bounds from switches
+        for (SwitchComponent switchComp : switches) {
+            minX = Math.min(minX, switchComp.getX());
+            minY = Math.min(minY, switchComp.getY());
+            maxX = Math.max(maxX, switchComp.getX() + switchComp.getWidth());
+            maxY = Math.max(maxY, switchComp.getY() + switchComp.getHeight());
+        }
+        
         // If no components, use default size
-        if (gates.isEmpty() && leds.isEmpty()) {
+        if (gates.isEmpty() && leds.isEmpty() && switches.isEmpty()) {
             minX = 0;
             minY = 0;
             maxX = 800;
@@ -1112,6 +1150,13 @@ public class CircuitCanvas extends JPanel {
             g2d.translate(led.getX(), led.getY());
             led.paint(g2d);
             g2d.translate(-led.getX(), -led.getY());
+        }
+        
+        // Draw switch components
+        for (SwitchComponent switchComp : switches) {
+            g2d.translate(switchComp.getX(), switchComp.getY());
+            switchComp.paint(g2d);
+            g2d.translate(-switchComp.getX(), -switchComp.getY());
         }
         
         g2d.dispose();
