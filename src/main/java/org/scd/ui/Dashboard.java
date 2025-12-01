@@ -202,15 +202,19 @@ public class Dashboard extends JFrame {
         project.setProject_Name(currentProjectName);
         project.setProjectId(currentProjectId); // Set the project ID for UPDATE vs INSERT
         
-        // Get current circuit
-        org.scd.business.model.Circuit currentCircuit = circuitService.getCurrentCircuit();
-        if (currentCircuit == null) {
-            currentCircuit = circuitService.createNewCircuit("Main Circuit");
+        // Get all circuits from service
+        java.util.List<org.scd.business.model.Circuit> allCircuits = circuitService.getAllCircuits();
+        
+        // If for some reason the list is empty (shouldn't happen if app is running), add current
+        if (allCircuits.isEmpty()) {
+            org.scd.business.model.Circuit currentCircuit = circuitService.getCurrentCircuit();
+            if (currentCircuit == null) {
+                currentCircuit = circuitService.createNewCircuit("Main Circuit");
+            }
+            allCircuits.add(currentCircuit);
         }
         
-        java.util.List<org.scd.business.model.Circuit> circuits = new java.util.ArrayList<>();
-        circuits.add(currentCircuit);
-        project.setCircuits(circuits);
+        project.setCircuits(allCircuits);
         
         if (projectService.saveProject(project)) {
             // Update project ID after first save
@@ -251,8 +255,13 @@ public class Dashboard extends JFrame {
             if (selectedId != null) {
                 org.scd.business.model.Project loadedProject = projectService.loadProject(selectedId);
                 if (loadedProject != null && loadedProject.getCircuits() != null && !loadedProject.getCircuits().isEmpty()) {
-                    // Load the first circuit for now
-                    org.scd.business.model.Circuit circuit = loadedProject.getCircuits().get(0);
+                    // Load all circuits into the service
+                    circuitService.loadProjectCircuits(loadedProject.getCircuits());
+                    
+                    // Get the current circuit (which should be the first one/Main Circuit)
+                    org.scd.business.model.Circuit circuit = circuitService.getCurrentCircuit();
+                    
+                    // Load it onto the canvas
                     mainPage.getCircuitCanvas().loadCircuit(circuit);
                     
                     // Update window title and store project name and ID

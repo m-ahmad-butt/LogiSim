@@ -4,30 +4,26 @@ import javax.swing.*;
 import java.awt.*;
 
 
+import org.scd.business.model.Switch;
+
 public class SwitchComponent extends JLabel {
-    private int positionX;
-    private int positionY;
-    private boolean isOn;
-    private int row;    // Row position in grid
-    private int column; // Column position in grid
+    private Switch switchModel;
     
     // Store original border for reset
     private Color originalBorderColor = Color.LIGHT_GRAY;
     
-    public SwitchComponent(int x, int y) {
-        this.positionX = x;
-        this.positionY = y;
-        this.isOn = false; // Start in OFF state
+    public SwitchComponent(Switch switchModel) {
+        this.switchModel = switchModel;
         
         initComponent();
     }
 
     private void initComponent() {
-        // Load default OFF image
-        loadImage(isOn);
+        // Load default state from model
+        loadImage(switchModel.isOn());
         
         // Set bounds (same size as LED for consistency)
-        setBounds(positionX, positionY, 60, 60);
+        setBounds(switchModel.getPositionX(), switchModel.getPositionY(), 60, 60);
         setHorizontalAlignment(SwingConstants.CENTER);
         
         // Make the component opaque with white background
@@ -89,15 +85,15 @@ public class SwitchComponent extends JLabel {
                         if (!canvas.checkOverlap(newBounds, SwitchComponent.this)) {
                             // Update position
                             setLocation(newX, newY);
-                            positionX = newX;
-                            positionY = newY;
+                            switchModel.setPositionX(newX);
+                            switchModel.setPositionY(newY);
                             
                             // Update row/column for wire routing
                             int col = (newX - 20 + 25) / (150 + 50);
                             int row = (newY - 20 + 40) / (80 + 80);
                             col = Math.max(0, col);
                             row = Math.max(0, row);
-                            setRowColumn(row, col);
+                            switchModel.setRowColumn(row, col);
                             
                             // Repaint canvas to update wires
                             canvas.repaint();
@@ -112,8 +108,8 @@ public class SwitchComponent extends JLabel {
      * Toggle the switch state between ON (1) and OFF (0)
      */
     public void toggle() {
-        isOn = !isOn;
-        loadImage(isOn);
+        switchModel.toggle();
+        loadImage(switchModel.isOn());
         
         // Update all connected components
         Container parent = getParent();
@@ -151,38 +147,41 @@ public class SwitchComponent extends JLabel {
      * Get the current output value of the switch (0 or 1)
      */
     public Integer getOutput() {
-        return isOn ? 1 : 0;
+        return switchModel.getOutput();
     }
     
     // Getters
     public void setRowColumn(int row, int column) {
-        this.row = row;
-        this.column = column;
+        switchModel.setRowColumn(row, column);
     }
     
     public int getRow() {
-        return row;
+        return switchModel.getRow();
     }
     
     public int getColumn() {
-        return column;
+        return switchModel.getColumn();
     }
     
     public int getPositionX() {
-        return positionX;
+        return switchModel.getPositionX();
     }
     
     public int getPositionY() {
-        return positionY;
+        return switchModel.getPositionY();
     }
     
     public boolean isOn() {
-        return isOn;
+        return switchModel.isOn();
+    }
+    
+    public int getComponentId() {
+        return switchModel.getComponentId();
     }
     
     public Point getOutputPoint() {
         // Output point is at the right side center of the switch
-        return new Point(positionX + 60, positionY + 30);
+        return new Point(switchModel.getPositionX() + 60, switchModel.getPositionY() + 30);
     }
     
     /**

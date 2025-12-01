@@ -81,6 +81,12 @@ public class CircuitService {
         return led;
     }
     
+    public Switch addSwitch(int positionX, int positionY) {
+        Switch switchComp = new Switch(generateComponentId(), positionX, positionY);
+        currentCircuit.addSwitch(switchComp);
+        return switchComp;
+    }
+    
  
     public Connector addConnector(int sourceId, int targetId, int targetInputIndex, String color) {
         Connector connector = new Connector(
@@ -121,6 +127,11 @@ public class CircuitService {
         uiComponentMap.remove(ledId);
     }
     
+    public void removeSwitch(int switchId) {
+        currentCircuit.removeSwitch(switchId);
+        uiComponentMap.remove(switchId);
+    }
+    
  
     public void removeConnector(int connectorId) {
         currentCircuit.removeConnector(connectorId);
@@ -136,6 +147,31 @@ public class CircuitService {
         return currentCircuit.findLEDById(ledId);
     }
     
+    public Switch findSwitch(int switchId) {
+        return currentCircuit.findSwitchById(switchId);
+    }
+    
+    /**
+     * Update the position of a gate in the model
+     */
+    public void updateGatePosition(int gateId, int x, int y) {
+        Gate gate = findGate(gateId);
+        if (gate != null) {
+            gate.setPositionX(x);
+            gate.setPositionY(y);
+        }
+    }
+    
+    /**
+     * Update the position of an LED in the model
+     */
+    public void updateLEDPosition(int ledId, int x, int y) {
+        LED led = findLED(ledId);
+        if (led != null) {
+            led.setPositionX(x);
+            led.setPositionY(y);
+        }
+    }
 
     public void setGateInput(int gateId, int inputIndex, Integer value, Integer sourceComponentId) {
         Gate gate = findGate(gateId);
@@ -241,6 +277,12 @@ public class CircuitService {
             }
         }
         
+        // Add Switches as inputs
+        List<Switch> circuitSwitches = currentCircuit.getSwitches();
+        for (Switch switchComp : circuitSwitches) {
+            inputLabels.add("Switch " + switchComp.getComponentId());
+        }
+        
         // 2. Identify Circuit Outputs (LEDs + Gates not acting as sources)
         List<Object> circuitOutputs = new ArrayList<>(); // Gate or LED
         List<String> outputLabels = new ArrayList<>();
@@ -277,8 +319,13 @@ public class CircuitService {
             savedState.put(input, input.getValue());
         }
         
+        Map<Switch, Boolean> savedSwitchState = new HashMap<>();
+        for (Switch switchComp : circuitSwitches) {
+            savedSwitchState.put(switchComp, switchComp.isOn());
+        }
+        
         // 5. Run Simulation
-        int numInputs = circuitInputs.size();
+        int numInputs = circuitInputs.size() + circuitSwitches.size();
         int numRows = 1 << numInputs; // 2^n
         
         // Limit max rows to prevent hanging on large circuits (e.g., max 10 inputs = 1024 rows)
@@ -293,7 +340,13 @@ public class CircuitService {
             for (int j = 0; j < numInputs; j++) {
                 // Use MSB first for standard truth table order
                 int bit = (i >> (numInputs - 1 - j)) & 1;
-                circuitInputs.get(j).setValue(bit);
+                
+                if (j < circuitInputs.size()) {
+                    circuitInputs.get(j).setValue(bit);
+                } else {
+                    int switchIndex = j - circuitInputs.size();
+                    circuitSwitches.get(switchIndex).setOn(bit == 1);
+                }
                 row.add(String.valueOf(bit));
             }
             
@@ -316,6 +369,9 @@ public class CircuitService {
         // 6. Restore State
         for (Map.Entry<Input, Integer> entry : savedState.entrySet()) {
             entry.getKey().setValue(entry.getValue());
+        }
+        for (Map.Entry<Switch, Boolean> entry : savedSwitchState.entrySet()) {
+            entry.getKey().setOn(entry.getValue());
         }
         calculateCircuit(); // Recalculate to restore original state
         
@@ -350,6 +406,10 @@ public class CircuitService {
         return new ArrayList<>(currentCircuit.getLeds());
     }
     
+    public List<Switch> getAllSwitches() {
+        return new ArrayList<>(currentCircuit.getSwitches());
+    }
+    
    
     public List<Connector> getAllConnectors() {
         return new ArrayList<>(currentCircuit.getConnectors());
@@ -372,7 +432,11 @@ public class CircuitService {
             return gate.getOutput();
         }
         LED led = findLED(componentId);
-        return led != null && led.isOn() ? 1 : 0;
+        if (led != null) {
+            return led.isOn() ? 1 : 0;
+        }
+        Switch switchComp = findSwitch(componentId);
+        return switchComp != null ? switchComp.getOutput() : 0;
     }
     
    
@@ -380,7 +444,9 @@ public class CircuitService {
         Gate gate = findGate(componentId);
         if (gate != null) return gate.getPositionX();
         LED led = findLED(componentId);
-        return led != null ? led.getPositionX() : 0;
+        if (led != null) return led.getPositionX();
+        Switch switchComp = findSwitch(componentId);
+        return switchComp != null ? switchComp.getPositionX() : 0;
     }
     
    
@@ -388,7 +454,9 @@ public class CircuitService {
         Gate gate = findGate(componentId);
         if (gate != null) return gate.getPositionY();
         LED led = findLED(componentId);
-        return led != null ? led.getPositionY() : 0;
+        if (led != null) return led.getPositionY();
+        Switch switchComp = findSwitch(componentId);
+        return switchComp != null ? switchComp.getPositionY() : 0;
     }
     
  
@@ -396,7 +464,9 @@ public class CircuitService {
         Gate gate = findGate(componentId);
         if (gate != null) return gate.getRow();
         LED led = findLED(componentId);
-        return led != null ? led.getRow() : 0;
+        if (led != null) return led.getRow();
+        Switch switchComp = findSwitch(componentId);
+        return switchComp != null ? switchComp.getRow() : 0;
     }
     
  
@@ -404,7 +474,9 @@ public class CircuitService {
         Gate gate = findGate(componentId);
         if (gate != null) return gate.getColumn();
         LED led = findLED(componentId);
-        return led != null ? led.getColumn() : 0;
+        if (led != null) return led.getColumn();
+        Switch switchComp = findSwitch(componentId);
+        return switchComp != null ? switchComp.getColumn() : 0;
     }
     
   
@@ -417,6 +489,11 @@ public class CircuitService {
         LED led = findLED(componentId);
         if (led != null) {
             led.setRowColumn(row, column);
+            return;
+        }
+        Switch switchComp = findSwitch(componentId);
+        if (switchComp != null) {
+            switchComp.setRowColumn(row, column);
         }
     }
     
@@ -491,12 +568,14 @@ public class CircuitService {
     public static class ClonedComponents {
         public List<Gate> gates;
         public List<LED> leds;
+        public List<Switch> switches;
         public List<Connector> connectors;
         public Map<Integer, Integer> idMapping; // old ID -> new ID
         
         public ClonedComponents() {
             gates = new ArrayList<>();
             leds = new ArrayList<>();
+            switches = new ArrayList<>();
             connectors = new ArrayList<>();
             idMapping = new HashMap<>();
         }
@@ -563,6 +642,15 @@ public class CircuitService {
             cloned.leds.add(clonedLED);
         }
         
+        // Clone switches with new IDs
+        for (Switch sourceSwitch : sourceCircuit.getSwitches()) {
+            int newId = generateComponentId();
+            cloned.idMapping.put(sourceSwitch.getComponentId(), newId);
+            
+            Switch clonedSwitch = new Switch(sourceSwitch, newId, offsetX, offsetY);
+            cloned.switches.add(clonedSwitch);
+        }
+        
         // Clone connectors with remapped IDs
         for (Connector sourceConnector : sourceCircuit.getConnectors()) {
             int newConnectorId = generateConnectorId();
@@ -583,7 +671,7 @@ public class CircuitService {
      * @param leds List of LEDs to merge
      * @param connectors List of connectors to merge
      */
-    public void mergeComponentsIntoCurrentCircuit(List<Gate> gates, List<LED> leds, List<Connector> connectors) {
+    public void mergeComponentsIntoCurrentCircuit(List<Gate> gates, List<LED> leds, List<Switch> switches, List<Connector> connectors) {
         // Add all gates
         for (Gate gate : gates) {
             currentCircuit.addGate(gate);
@@ -592,6 +680,11 @@ public class CircuitService {
         // Add all LEDs
         for (LED led : leds) {
             currentCircuit.addLED(led);
+        }
+        
+        // Add all switches
+        for (Switch switchComp : switches) {
+            currentCircuit.addSwitch(switchComp);
         }
         
         // Add all connectors and establish connections
@@ -647,5 +740,75 @@ public class CircuitService {
         }
         
         return false;
+    }
+    /**
+     * Loads a list of circuits into the service, replacing the current state.
+     * Used when loading a project from the database.
+     * 
+     * @param circuits List of circuits to load
+     */
+    public void loadProjectCircuits(List<Circuit> circuits) {
+        if (circuits == null || circuits.isEmpty()) {
+            return;
+        }
+        
+        this.allCircuits = new ArrayList<>(circuits);
+        
+        // Set current circuit to the first one (Main Circuit)
+        if (!this.allCircuits.isEmpty()) {
+            this.currentCircuit = this.allCircuits.get(0);
+        }
+        
+        // Update ID counters to avoid conflicts with loaded data
+        updateIdCounters();
+        
+        // Clear UI map as we're starting fresh with loaded data
+        uiComponentMap.clear();
+    }
+    
+    /**
+     * Updates ID counters based on the highest IDs found in the loaded circuits.
+     * This ensures new components/circuits get unique IDs.
+     */
+    private void updateIdCounters() {
+        int maxComponentId = 0;
+        int maxConnectorId = 0;
+        int maxCircuitId = 0;
+        
+        for (Circuit circuit : allCircuits) {
+            // Check circuit ID
+            if (circuit.getCircuitId() > maxCircuitId) {
+                maxCircuitId = circuit.getCircuitId();
+            }
+            
+            // Check component IDs
+            for (Gate gate : circuit.getGates()) {
+                if (gate.getComponentId() > maxComponentId) {
+                    maxComponentId = gate.getComponentId();
+                }
+            }
+            for (LED led : circuit.getLeds()) {
+                if (led.getComponentId() > maxComponentId) {
+                    maxComponentId = led.getComponentId();
+                }
+            }
+            for (Switch switchComp : circuit.getSwitches()) {
+                if (switchComp.getComponentId() > maxComponentId) {
+                    maxComponentId = switchComp.getComponentId();
+                }
+            }
+            
+            // Check connector IDs
+            for (Connector connector : circuit.getConnectors()) {
+                if (connector.getConnectorId() > maxConnectorId) {
+                    maxConnectorId = connector.getConnectorId();
+                }
+            }
+        }
+        
+        // Set counters to max found + 1
+        this.circuitIdCounter = maxCircuitId;
+        this.componentIdCounter = maxComponentId;
+        this.connectorIdCounter = maxConnectorId;
     }
 }

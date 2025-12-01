@@ -120,6 +120,9 @@ public class GateComponent extends JPanel {
                             // Update position
                             setLocation(newX, newY);
                             
+                            // Update position in the model
+                            service.updateGatePosition(componentId, newX, newY);
+                            
                             // Update row/column for wire routing
                             int col = (newX - 20 + 25) / (150 + 50);
                             int row = (newY - 20 + 40) / (80 + 80);

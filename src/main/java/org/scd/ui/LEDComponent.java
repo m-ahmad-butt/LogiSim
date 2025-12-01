@@ -107,6 +107,9 @@ public class LEDComponent extends JLabel {
                             positionX = newX;
                             positionY = newY;
                             
+                            // Update position in the model
+                            service.updateLEDPosition(componentId, newX, newY);
+                            
                             // Update row/column for wire routing
                             int col = (newX - 20 + 25) / (150 + 50);
                             int row = (newY - 20 + 40) / (80 + 80);

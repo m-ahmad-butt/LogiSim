@@ -18,6 +18,11 @@ public class CircuitCanvas extends JPanel {
     private List<SwitchComponent> switches;
     private List<WireConnection> wires;
     
+    public List<GateComponent> getGates() { return gates; }
+    public List<LEDComponent> getLEDs() { return leds; }
+    public List<SwitchComponent> getSwitches() { return switches; }
+    public List<WireConnection> getWires() { return wires; }
+    
     // Layout settings
     private int currentX = 20;
     private int currentY = 20;
@@ -185,7 +190,10 @@ public class CircuitCanvas extends JPanel {
      * Add Switch at specific coordinates (for drag-and-drop)
      */
     public void addSwitch(int x, int y) {
-        SwitchComponent switchComp = new SwitchComponent(x, y);
+        // Create switch in service/model
+        org.scd.business.model.Switch switchModel = service.addSwitch(x, y);
+        
+        SwitchComponent switchComp = new SwitchComponent(switchModel);
         
         // Calculate row/column from position for wire routing
         int col = (x - currentX + (horizontalSpacing / 2)) / (gateWidth + horizontalSpacing);
@@ -201,6 +209,11 @@ public class CircuitCanvas extends JPanel {
         expandCanvasIfNeeded(x + 60, y + 60);
         
         repaint();
+    }
+    
+    public void addSwitchComponent(SwitchComponent switchComp) {
+        switches.add(switchComp);
+        add(switchComp);
     }
     
     /**
@@ -412,6 +425,9 @@ public class CircuitCanvas extends JPanel {
         } else if (component instanceof SwitchComponent) {
             SwitchComponent switchComp = (SwitchComponent) component;
             
+            // Remove from service
+            service.removeSwitch(switchComp.getComponentId());
+            
             // Remove from UI list
             switches.remove(switchComp);
             
@@ -444,7 +460,7 @@ public class CircuitCanvas extends JPanel {
                 // Also remove from service
                 // Note: We don't have direct mapping from WireConnection to Connector ID easily available
                 // But we can clean up connectors in service that reference this component
-                // Actually, service.removeGate/removeLED should handle cleaning up connectors in the model
+                // Actually, service.removeGate/removeLED/removeSwitch should handle cleaning up connectors in the model
                 // But we need to clean up UI wires
             }
         }
@@ -607,6 +623,10 @@ public class CircuitCanvas extends JPanel {
                 target.getInput2().setValue(source.getOutput());
             }
             
+            // Sync with Model
+            service.addConnector(source.getComponentId(), target.getComponentId(), inputIndex, 
+                    String.format("#%02x%02x%02x", wire.getWireColor().getRed(), wire.getWireColor().getGreen(), wire.getWireColor().getBlue()));
+            
             // Recalculate target output
             target.calculateOutput();
             target.updateImage();
@@ -640,6 +660,10 @@ public class CircuitCanvas extends JPanel {
         target.getInput().setSourceComponent(source);
         target.getInput().setValue(source.getOutput());
         target.updateState();
+        
+        // Sync with Model
+        service.addConnector(source.getComponentId(), target.getComponentId(), 0, 
+                String.format("#%02x%02x%02x", wire.getWireColor().getRed(), wire.getWireColor().getGreen(), wire.getWireColor().getBlue()));
         
         repaint();
         
@@ -724,6 +748,28 @@ public class CircuitCanvas extends JPanel {
             maxColumn = Math.max(maxColumn, col);
         }
         
+        // Load Switches
+        for (org.scd.business.model.Switch switchModel : circuit.getSwitches()) {
+            SwitchComponent sc = new SwitchComponent(switchModel);
+            switches.add(sc);
+            add(sc);
+            
+            // Calculate row and column from position
+            int x = switchModel.getPositionX();
+            int y = switchModel.getPositionY();
+            
+            int col = (x - currentX + (horizontalSpacing / 2)) / (gateWidth + horizontalSpacing);
+            int row = (y - currentY + (verticalSpacing / 2)) / (gateHeight + verticalSpacing);
+            
+            col = Math.max(0, col);
+            row = Math.max(0, row);
+            
+            sc.setRowColumn(row, col);
+            
+            maxRow = Math.max(maxRow, row);
+            maxColumn = Math.max(maxColumn, col);
+        }
+        
         // Update layout tracking variables
         currentRow = maxRow;
         currentColumn = maxColumn + 1;
@@ -748,32 +794,46 @@ public class CircuitCanvas extends JPanel {
         
         // Load Connectors/Wires
         for (Connector conn : circuit.getConnectors()) {
-            GateComponent source = findGateComponent(conn.getSourceComponentId());
+            Object source = findComponent(conn.getSourceComponentId());
             Object target = findComponent(conn.getTargetComponentId());
             
             if (source != null && target != null) {
-                 // Count how many wires already exist from this source (for vertical offset)
+                // Count how many wires already exist from this source (for vertical offset)
                 int wireIndexFromSource = 0;
                 for (WireConnection existingWire : wires) {
-                    if (existingWire.getSourceGate() == source) {
+                    if (existingWire.getSourceGate() == source || existingWire.getSourceComponent() == source) {
                         wireIndexFromSource++;
                     }
                 }
                 
-                WireConnection wire = new WireConnection(source, target, conn.getTargetInputIndex(), this, wireIndexFromSource);
-                wires.add(wire);
+                WireConnection wire = null;
+                if (source instanceof GateComponent) {
+                    wire = new WireConnection((GateComponent)source, target, conn.getTargetInputIndex(), this, wireIndexFromSource);
+                } else if (source instanceof SwitchComponent) {
+                    wire = new WireConnection((SwitchComponent)source, target, conn.getTargetInputIndex(), this, wireIndexFromSource);
+                }
                 
-                // Update UI connections
-                if (target instanceof GateComponent) {
-                    GateComponent targetGate = (GateComponent) target;
-                    if (conn.getTargetInputIndex() == 0) {
-                        targetGate.getInput1().setSourceComponent(source);
-                    } else {
-                        targetGate.getInput2().setSourceComponent(source);
+                if (wire != null) {
+                    wires.add(wire);
+                    
+                    // Update UI connections
+                    if (target instanceof GateComponent) {
+                        GateComponent targetGate = (GateComponent) target;
+                        if (conn.getTargetInputIndex() == 0) {
+                            targetGate.getInput1().setSourceComponent(source);
+                        } else {
+                            targetGate.getInput2().setSourceComponent(source);
+                        }
+                    } else if (target instanceof LEDComponent) {
+                        LEDComponent targetLED = (LEDComponent) target;
+                        if (source instanceof GateComponent) {
+                            targetLED.setInputSource((GateComponent) source);
+                        } else if (source instanceof SwitchComponent) {
+                            targetLED.getInput().setSourceComponent(source);
+                            targetLED.getInput().setValue(((SwitchComponent) source).getOutput());
+                            targetLED.updateState();
+                        }
                     }
-                } else if (target instanceof LEDComponent) {
-                    LEDComponent targetLED = (LEDComponent) target;
-                    targetLED.setInputSource(source);
                 }
             }
         }
@@ -796,6 +856,9 @@ public class CircuitCanvas extends JPanel {
         if (gc != null) return gc;
         for (LEDComponent lc : leds) {
             if (lc.getComponentId() == id) return lc;
+        }
+        for (SwitchComponent sc : switches) {
+            if (sc.getComponentId() == id) return sc;
         }
         return null;
     }
@@ -870,25 +933,6 @@ public class CircuitCanvas extends JPanel {
                 }
             }
         }
-    }
-    
-  
-    public List<GateComponent> getGates() {
-        return gates;
-    }
-    
-  
-    public List<LEDComponent> getLEDs() {
-        return leds;
-    }
-    
-    public List<SwitchComponent> getSwitches() {
-        return switches;
-    }
-    
-  
-    public List<WireConnection> getWires() {
-        return wires;
     }
     
     /**

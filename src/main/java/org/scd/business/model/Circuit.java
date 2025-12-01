@@ -16,11 +16,13 @@ public class Circuit implements Serializable {
     private Date modifiedDate;
     private List<Gate> gates;
     private List<LED> leds;
+    private List<Switch> switches;
     private List<Connector> connectors;
     
     public Circuit() {
         this.gates = new ArrayList<>();
         this.leds = new ArrayList<>();
+        this.switches = new ArrayList<>();
         this.connectors = new ArrayList<>();
         this.createdDate = new Date();
         this.modifiedDate = new Date();
@@ -81,7 +83,7 @@ public class Circuit implements Serializable {
     }
     
     public int getComponentCount() {
-        return gates.size() + leds.size();
+        return gates.size() + leds.size() + switches.size();
     }
     
     // Getters and setters
@@ -149,5 +151,31 @@ public class Circuit implements Serializable {
     
     public void setConnectors(List<Connector> connectors) {
         this.connectors = connectors;
+    }
+    
+    public List<Switch> getSwitches() {
+        return switches;
+    }
+    
+    public void setSwitches(List<Switch> switches) {
+        this.switches = switches;
+    }
+    
+    public void addSwitch(Switch switchComponent) {
+        switches.add(switchComponent);
+        modifiedDate = new Date();
+    }
+    
+    public void removeSwitch(int switchId) {
+        switches.removeIf(s -> s.getComponentId() == switchId);
+        connectors.removeIf(c -> c.getSourceComponentId() == switchId);
+        modifiedDate = new Date();
+    }
+    
+    public Switch findSwitchById(int switchId) {
+        return switches.stream()
+                   .filter(s -> s.getComponentId() == switchId)
+                   .findFirst()
+                   .orElse(null);
     }
 }

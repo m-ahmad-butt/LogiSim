@@ -787,23 +787,28 @@ public class mainPanel extends JPanel {
         // IMPORTANT: Add cloned components to service FIRST, before creating UI components
         // This ensures that when GateComponent constructor queries service.getComponentPositionX/Y,
         // the components are already in the service with correct positions
-        service.mergeComponentsIntoCurrentCircuit(cloned.gates, cloned.leds, cloned.connectors);
+        service.mergeComponentsIntoCurrentCircuit(cloned.gates, cloned.leds, cloned.switches, cloned.connectors);
         
         // Now create UI components - they will query service for positions
         java.util.List<GateComponent> tempGates = new java.util.ArrayList<>();
         java.util.List<LEDComponent> tempLEDs = new java.util.ArrayList<>();
-        
+        java.util.List<SwitchComponent> tempSwitches = new java.util.ArrayList<>();
+
+        // Create UI components for cloned model components
         for (org.scd.business.model.Gate gate : cloned.gates) {
             GateComponent gc = new GateComponent(gate);
             tempGates.add(gc);
         }
-        
         for (org.scd.business.model.LED led : cloned.leds) {
             LEDComponent lc = new LEDComponent(led);
             tempLEDs.add(lc);
         }
-        
-        // Check overlap
+        for (org.scd.business.model.Switch sw : cloned.switches) {
+            SwitchComponent sc = new SwitchComponent(sw);
+            tempSwitches.add(sc);
+        }
+
+        // Check for overlap before committing UI components
         boolean hasOverlap = false;
         for (GateComponent gc : tempGates) {
             if (circuitCanvas.checkOverlap(gc.getBounds(), null)) {
@@ -811,10 +816,19 @@ public class mainPanel extends JPanel {
                 break;
             }
         }
-        
+
         if (!hasOverlap) {
             for (LEDComponent lc : tempLEDs) {
                 if (circuitCanvas.checkOverlap(lc.getBounds(), null)) {
+                    hasOverlap = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hasOverlap) {
+            for (SwitchComponent sc : tempSwitches) {
+                if (circuitCanvas.checkOverlap(sc.getBounds(), null)) {
                     hasOverlap = true;
                     break;
                 }
@@ -828,6 +842,9 @@ public class mainPanel extends JPanel {
             }
             for (org.scd.business.model.LED led : cloned.leds) {
                 service.removeLED(led.getComponentId());
+            }
+            for (org.scd.business.model.Switch switchComp : cloned.switches) {
+                service.removeSwitch(switchComp.getComponentId());
             }
             for (org.scd.business.model.Connector connector : cloned.connectors) {
                 service.removeConnector(connector.getConnectorId());
@@ -862,6 +879,13 @@ public class mainPanel extends JPanel {
             maxBottom = Math.max(maxBottom, lc.getY() + lc.getHeight());
         }
         
+        for (SwitchComponent sc : tempSwitches) {
+            circuitCanvas.addSwitchComponent(sc);
+            // circuitCanvas.add(sc) is called inside addSwitchComponent
+            maxRight = Math.max(maxRight, sc.getX() + sc.getWidth());
+            maxBottom = Math.max(maxBottom, sc.getY() + sc.getHeight());
+        }
+        
         // Expand canvas to fit new components
         Dimension currentSize = circuitCanvas.getPreferredSize();
         int padding = 100;
@@ -875,32 +899,54 @@ public class mainPanel extends JPanel {
         // Create wire connections
         for (org.scd.business.model.Connector connector : cloned.connectors) {
             GateComponent sourceGate = findGateComponentById(connector.getSourceComponentId(), tempGates);
-            Object target = findComponentById(connector.getTargetComponentId(), tempGates, tempLEDs);
+            // Also try to find source switch if gate not found
+            Object source = sourceGate;
+            if (source == null) {
+                source = findComponentById(connector.getSourceComponentId(), tempGates, tempLEDs, tempSwitches);
+            }
             
-            if (sourceGate != null && target != null) {
+            Object target = findComponentById(connector.getTargetComponentId(), tempGates, tempLEDs, tempSwitches);
+            
+            if (source != null && target != null) {
                 int wireIndex = 0;
                 // Count existing wires from this source
                 for (WireConnection existingWire : circuitCanvas.getWires()) {
-                    if (existingWire.getSourceGate() == sourceGate) {
+                    if (existingWire.getSourceComponent() == source || existingWire.getSourceGate() == source) {
                         wireIndex++;
                     }
                 }
                 
-                WireConnection wire = new WireConnection(sourceGate, target, 
-                    connector.getTargetInputIndex(), circuitCanvas, wireIndex);
-                circuitCanvas.getWires().add(wire);
+                WireConnection wire = null;
+                if (source instanceof GateComponent) {
+                    wire = new WireConnection((GateComponent)source, target, 
+                        connector.getTargetInputIndex(), circuitCanvas, wireIndex);
+                } else if (source instanceof SwitchComponent) {
+                    wire = new WireConnection((SwitchComponent)source, target, 
+                        connector.getTargetInputIndex(), circuitCanvas, wireIndex);
+                }
+                
+                if (wire != null) {
+                    circuitCanvas.getWires().add(wire);
+                }
                 
                 // Update UI component connections
                 if (target instanceof GateComponent) {
                     GateComponent targetGate = (GateComponent) target;
                     if (connector.getTargetInputIndex() == 0) {
-                        targetGate.getInput1().setSourceComponent(sourceGate);
+                        targetGate.getInput1().setSourceComponent(source);
                     } else {
-                        targetGate.getInput2().setSourceComponent(sourceGate);
+                        targetGate.getInput2().setSourceComponent(source);
                     }
                 } else if (target instanceof LEDComponent) {
                     LEDComponent targetLED = (LEDComponent) target;
-                    targetLED.setInputSource(sourceGate);
+                    if (source instanceof GateComponent) {
+                        targetLED.setInputSource((GateComponent) source);
+                    } else if (source instanceof SwitchComponent) {
+                        // For a switch source, set the input directly and update state
+                        targetLED.getInput().setSourceComponent(source);
+                        targetLED.getInput().setValue(((SwitchComponent) source).getOutput());
+                        targetLED.updateState();
+                    }
                 }
             }
         }
@@ -931,9 +977,9 @@ public class mainPanel extends JPanel {
     }
     
     /**
-     * Find a component (Gate or LED) by ID
+     * Find a component (Gate, LED, or Switch) by ID
      */
-    private Object findComponentById(int id, java.util.List<GateComponent> gates, java.util.List<LEDComponent> leds) {
+    private Object findComponentById(int id, java.util.List<GateComponent> gates, java.util.List<LEDComponent> leds, java.util.List<SwitchComponent> switches) {
         // Check in provided lists first
         for (GateComponent gc : gates) {
             if (gc.getComponentId() == id) {
@@ -945,6 +991,11 @@ public class mainPanel extends JPanel {
                 return lc;
             }
         }
+        for (SwitchComponent sc : switches) {
+            if (sc.getComponentId() == id) {
+                return sc;
+            }
+        }
         // Check existing canvas components
         for (GateComponent gc : circuitCanvas.getGates()) {
             if (gc.getComponentId() == id) {
@@ -954,6 +1005,11 @@ public class mainPanel extends JPanel {
         for (LEDComponent lc : circuitCanvas.getLEDs()) {
             if (lc.getComponentId() == id) {
                 return lc;
+            }
+        }
+        for (SwitchComponent sc : circuitCanvas.getSwitches()) {
+            if (sc.getComponentId() == id) {
+                return sc;
             }
         }
         return null;
