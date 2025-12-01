@@ -1,16 +1,10 @@
 package org.scd.ui;
 
-import org.scd.business.service.CircuitService;
-
 import javax.swing.*;
 import java.awt.*;
 
 
-public class LEDComponent extends JLabel {
-    private int componentId; // Store only the ID, not the model
-    private CircuitService service; 
-    
-    private ComponentInput input;
+public class SwitchComponent extends JLabel {
     private int positionX;
     private int positionY;
     private boolean isOn;
@@ -20,29 +14,10 @@ public class LEDComponent extends JLabel {
     // Store original border for reset
     private Color originalBorderColor = Color.LIGHT_GRAY;
     
-    public LEDComponent(int x, int y) {
-        this.service = CircuitService.getInstance();
+    public SwitchComponent(int x, int y) {
         this.positionX = x;
         this.positionY = y;
-        this.input = new ComponentInput(0);
-        this.isOn = false;
-        
-        // Add LED through service and store only the component ID
-        this.componentId = service.getLEDComponentId(service.addLED(x, y));
-        service.registerUIComponent(this.componentId, this);
-        
-        initComponent();
-    }
-
-    public LEDComponent(org.scd.business.model.LED led) {
-        this.service = CircuitService.getInstance();
-        this.positionX = led.getPositionX();
-        this.positionY = led.getPositionY();
-        this.input = new ComponentInput(0);
-        this.isOn = led.isOn();
-        
-        this.componentId = led.getComponentId();
-        service.registerUIComponent(this.componentId, this);
+        this.isOn = false; // Start in OFF state
         
         initComponent();
     }
@@ -51,7 +26,7 @@ public class LEDComponent extends JLabel {
         // Load default OFF image
         loadImage(isOn);
         
-        // Set bounds
+        // Set bounds (same size as LED for consistency)
         setBounds(positionX, positionY, 60, 60);
         setHorizontalAlignment(SwingConstants.CENTER);
         
@@ -69,7 +44,14 @@ public class LEDComponent extends JLabel {
                 // Notify parent for connector mode
                 Container parent = getParent();
                 if (parent instanceof CircuitCanvas) {
-                    ((CircuitCanvas) parent).handleComponentClick(LEDComponent.this);
+                    CircuitCanvas canvas = (CircuitCanvas) parent;
+                    // If NOT in connector mode, toggle the switch
+                    if (!canvas.isConnectorMode()) {
+                        toggle();
+                    } else {
+                        // In connector mode, handle connection
+                        canvas.handleComponentClick(SwitchComponent.this);
+                    }
                 }
             }
             
@@ -90,7 +72,7 @@ public class LEDComponent extends JLabel {
             public void mouseDragged(java.awt.event.MouseEvent e) {
                 if (dragOffset[0] != null) {
                     // Calculate new position
-                    Point parentPoint = SwingUtilities.convertPoint(LEDComponent.this, e.getPoint(), getParent());
+                    Point parentPoint = SwingUtilities.convertPoint(SwitchComponent.this, e.getPoint(), getParent());
                     int newX = parentPoint.x - dragOffset[0].x;
                     int newY = parentPoint.y - dragOffset[0].y;
                     
@@ -101,7 +83,7 @@ public class LEDComponent extends JLabel {
                         Rectangle newBounds = new Rectangle(newX, newY, getWidth(), getHeight());
                         
                         // Only move if no overlap (excluding self)
-                        if (!canvas.checkOverlap(newBounds, LEDComponent.this)) {
+                        if (!canvas.checkOverlap(newBounds, SwitchComponent.this)) {
                             // Update position
                             setLocation(newX, newY);
                             positionX = newX;
@@ -123,10 +105,23 @@ public class LEDComponent extends JLabel {
         });
     }
     
+    /**
+     * Toggle the switch state between ON (1) and OFF (0)
+     */
+    public void toggle() {
+        isOn = !isOn;
+        loadImage(isOn);
+        
+        // Update all connected components
+        Container parent = getParent();
+        if (parent instanceof CircuitCanvas) {
+            ((CircuitCanvas) parent).updateCircuitFromSwitch(this);
+        }
+    }
   
     private void loadImage(boolean on) {
         ResourcePath resourcePath = ResourcePath.getInstance();
-        String imagePath = on ? resourcePath.getLedOn() : resourcePath.getLedOff();
+        String imagePath = on ? resourcePath.getSwitchOn() : resourcePath.getSwitchOff();
         
         try {
             java.net.URL imgURL = getClass().getClassLoader().getResource(imagePath);
@@ -137,59 +132,26 @@ public class LEDComponent extends JLabel {
                 setText(""); // Clear text if image loads
             } else {
                 // Fallback: show text if image not found
-                setText("LED " + getComponentId() + (on ? " ON" : " OFF"));
+                setText("SW " + (on ? " ON" : " OFF"));
                 setForeground(on ? Color.GREEN : Color.RED);
                 setHorizontalAlignment(SwingConstants.CENTER);
             }
         } catch (Exception e) {
             // Fallback: show text if image not found
-            setText("LED " + getComponentId() + (on ? " ON" : " OFF"));
+            setText("SW " + (on ? " ON" : " OFF"));
             setForeground(on ? Color.GREEN : Color.RED);
             setHorizontalAlignment(SwingConstants.CENTER);
         }
     }
     
-  
-    public void updateImage() {
-        // Get state from service
-        this.isOn = service.getLEDState(this.componentId);
-        loadImage(this.isOn);
-    }
-    
-    public void updateState() {
-        Integer inputValue = input.getValue();
-        if (inputValue != null) {
-            Integer sourceId = null;
-            Object source = input.getSourceComponent();
-            if (source instanceof GateComponent) {
-                sourceId = ((GateComponent) source).getComponentId();
-            }
-            // Use service to update LED input and get state
-            service.setLEDInput(this.componentId, inputValue, sourceId);
-            isOn = service.getLEDState(this.componentId);
-            loadImage(isOn);
-        }
-    }
-    
-   
-    public void setInputSource(GateComponent source) {
-        input.setSourceComponent(source);
-        // Update LED state based on source output
-        if (source.getOutput() != null) {
-            input.setValue(source.getOutput());
-            updateState();
-        }
+    /**
+     * Get the current output value of the switch (0 or 1)
+     */
+    public Integer getOutput() {
+        return isOn ? 1 : 0;
     }
     
     // Getters
-    public int getComponentId() {
-        return this.componentId;
-    }
-    
-    public ComponentInput getInput() {
-        return input;
-    }
-    
     public void setRowColumn(int row, int column) {
         this.row = row;
         this.column = column;
@@ -215,9 +177,9 @@ public class LEDComponent extends JLabel {
         return isOn;
     }
     
-    public Point getInputPoint() {
-        // Input point is at the bottom center of the LED
-        return new Point(positionX + 30, positionY + 60);
+    public Point getOutputPoint() {
+        // Output point is at the right side center of the switch
+        return new Point(positionX + 60, positionY + 30);
     }
     
     /**

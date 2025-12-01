@@ -62,4 +62,13 @@ public class ResourcePath {
     public String getConnectorOn() {
         return "Connector/State_on.png";
     }
+    
+    // Switch image paths
+    public String getSwitchOff() {
+        return "Switch/0.jpeg";
+    }
+    
+    public String getSwitchOn() {
+        return "Switch/1.jpeg";
+    }
 }

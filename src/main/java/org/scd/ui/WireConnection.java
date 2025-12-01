@@ -8,6 +8,7 @@ public class WireConnection {
     
     private int connectionId;
     private GateComponent sourceGate;
+    private Object sourceComponent; // Can be GateComponent or SwitchComponent
     private Object targetComponent;
     private int targetInputIndex;
     private Color wireColor;
@@ -19,6 +20,19 @@ public class WireConnection {
     public WireConnection(GateComponent source, Object target, int targetInputIndex, CircuitCanvas canvas, int wireIndexFromSource) {
         this.connectionId = ++idCounter;
         this.sourceGate = source;
+        this.sourceComponent = source;
+        this.targetComponent = target;
+        this.targetInputIndex = targetInputIndex;
+        this.canvas = canvas;
+        this.wireIndexFromSource = wireIndexFromSource;
+        this.wireColor = generateRandomColor();
+        updatePoints();
+    }
+    
+    // Constructor for Switch source
+    public WireConnection(SwitchComponent source, Object target, int targetInputIndex, CircuitCanvas canvas, int wireIndexFromSource) {
+        this.connectionId = ++idCounter;
+        this.sourceComponent = source;
         this.targetComponent = target;
         this.targetInputIndex = targetInputIndex;
         this.canvas = canvas;
@@ -35,7 +49,13 @@ public class WireConnection {
     }
 
     public void updatePoints() {
-        startPoint = sourceGate.getOutputPoint();        
+        if (sourceComponent instanceof GateComponent) {
+            startPoint = ((GateComponent) sourceComponent).getOutputPoint();
+        } else if (sourceComponent instanceof SwitchComponent) {
+            startPoint = ((SwitchComponent) sourceComponent).getOutputPoint();
+        } else if (sourceGate != null) {
+            startPoint = sourceGate.getOutputPoint();
+        }
 
         if (targetComponent instanceof GateComponent) {
             GateComponent targetGate = (GateComponent) targetComponent;
@@ -266,7 +286,11 @@ public class WireConnection {
     
     // Getters
     public int getConnectionId() { return connectionId; }
-    public GateComponent getSourceGate() { return sourceGate; }
+    public GateComponent getSourceGate() { 
+        if (sourceGate != null) return sourceGate;
+        return null;
+    }
+    public Object getSourceComponent() { return sourceComponent; }
     public Object getTargetComponent() { return targetComponent; }
     public int getTargetInputIndex() { return targetInputIndex; }
     public Color getWireColor() { return wireColor; }

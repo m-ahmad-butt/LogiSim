@@ -3,7 +3,7 @@ package org.scd.ui;
 
 public class ComponentInput {
     private Integer value; // null means not set, 0 or 1 when set
-    private GateComponent sourceComponent; // null if direct input, or reference to source gate
+    private Object sourceComponent; // null if direct input, or reference to source gate/switch
     private int inputOrder; // 0 for first input, 1 for second input
     
     public ComponentInput(int inputOrder) {
@@ -20,11 +20,11 @@ public class ComponentInput {
         this.value = value;
     }
     
-    public GateComponent getSourceComponent() {
+    public Object getSourceComponent() {
         return sourceComponent;
     }
     
-    public void setSourceComponent(GateComponent sourceComponent) {
+    public void setSourceComponent(Object sourceComponent) {
         this.sourceComponent = sourceComponent;
     }
     

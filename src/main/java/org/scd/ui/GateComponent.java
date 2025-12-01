@@ -82,13 +82,9 @@ public class GateComponent extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    handleDoubleClick();
-                } else if (e.getClickCount() == 1) {
-                    Container parent = getParent();
-                    if (parent instanceof CircuitCanvas) {
-                        ((CircuitCanvas) parent).handleComponentClick(GateComponent.this);
-                    }
+                Container parent = getParent();
+                if (parent instanceof CircuitCanvas) {
+                    ((CircuitCanvas) parent).handleComponentClick(GateComponent.this);
                 }
             }
             
@@ -377,14 +373,20 @@ public class GateComponent extends JPanel {
     public void calculateOutput() {
         // Sync UI inputs to service/model
         if (input1 != null && input1.getValue() != null) {
-            Integer sourceId = (input1.getSourceComponent() != null) ? 
-                input1.getSourceComponent().getComponentId() : null;
+            Integer sourceId = null;
+            Object source = input1.getSourceComponent();
+            if (source instanceof GateComponent) {
+                sourceId = ((GateComponent) source).getComponentId();
+            }
             service.setGateInput(componentId, 0, input1.getValue(), sourceId);
         }
         
         if (input2 != null && input2.getValue() != null) {
-            Integer sourceId = (input2.getSourceComponent() != null) ? 
-                input2.getSourceComponent().getComponentId() : null;
+            Integer sourceId = null;
+            Object source = input2.getSourceComponent();
+            if (source instanceof GateComponent) {
+                sourceId = ((GateComponent) source).getComponentId();
+            }
             service.setGateInput(componentId, 1, input2.getValue(), sourceId);
         }
     }

@@ -37,8 +37,6 @@ public class CircuitService {
     public Circuit createNewCircuit(String name) {
         currentCircuit = new Circuit(generateCircuitId(), name);
         allCircuits.add(currentCircuit);
-        componentIdCounter = 0;
-        connectorIdCounter = 0;
         uiComponentMap.clear();
         return currentCircuit;
     }

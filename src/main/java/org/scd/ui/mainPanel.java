@@ -37,10 +37,12 @@ public class mainPanel extends JPanel {
         JButton orBtn = new JButton("OR");
         JButton notBtn = new JButton("NOT");
         JButton ledBtn = new JButton("LED");
+        JButton switchBtn = new JButton("Switch");
         upperLeftPanel.add(andBtn);
         upperLeftPanel.add(orBtn);
         upperLeftPanel.add(notBtn);
         upperLeftPanel.add(ledBtn);
+        upperLeftPanel.add(switchBtn);
 
        JPanel upperRightPanel = new JPanel();
        upperRightPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
@@ -133,6 +135,7 @@ public class mainPanel extends JPanel {
         setupDragAndDrop(orBtn, "OR");
         setupDragAndDrop(notBtn, "NOT");
         setupDragAndDrop(ledBtn, "LED");
+        setupDragAndDrop(switchBtn, "Switch");
         
         // Keep connector as click button
         // Connector toggle listener
@@ -207,6 +210,8 @@ public class mainPanel extends JPanel {
                             // Place component at drop location only if no overlap
                             if (draggedComponentType.equals("LED")) {
                                 circuitCanvas.addLED(canvasPoint.x - 75, canvasPoint.y - 40);
+                            } else if (draggedComponentType.equals("Switch")) {
+                                circuitCanvas.addSwitch(canvasPoint.x - 75, canvasPoint.y - 40);
                             } else {
                                 circuitCanvas.addGate(draggedComponentType, canvasPoint.x - 75, canvasPoint.y - 40);
                             }
@@ -838,15 +843,33 @@ public class mainPanel extends JPanel {
         // No overlap, add UI components to canvas
         // (components are already in service from earlier merge)
         
+        // Track max bounds for canvas expansion
+        int maxRight = 0;
+        int maxBottom = 0;
+        
         // Add UI components to canvas
         for (GateComponent gc : tempGates) {
             circuitCanvas.getGates().add(gc);
             circuitCanvas.add(gc);
+            maxRight = Math.max(maxRight, gc.getX() + gc.getWidth());
+            maxBottom = Math.max(maxBottom, gc.getY() + gc.getHeight());
         }
         
         for (LEDComponent lc : tempLEDs) {
             circuitCanvas.getLEDs().add(lc);
             circuitCanvas.add(lc);
+            maxRight = Math.max(maxRight, lc.getX() + lc.getWidth());
+            maxBottom = Math.max(maxBottom, lc.getY() + lc.getHeight());
+        }
+        
+        // Expand canvas to fit new components
+        Dimension currentSize = circuitCanvas.getPreferredSize();
+        int padding = 100;
+        int newWidth = Math.max(currentSize.width, maxRight + padding);
+        int newHeight = Math.max(currentSize.height, maxBottom + padding);
+        if (newWidth > currentSize.width || newHeight > currentSize.height) {
+            circuitCanvas.setPreferredSize(new Dimension(newWidth, newHeight));
+            circuitCanvas.revalidate();
         }
         
         // Create wire connections
