@@ -68,25 +68,49 @@ public class sqlDao implements daoInterface {
                 for (Circuit circuit : project.getCircuits()) {
                     int circuitId = saveCircuit(circuit, projectId);
 
-                    // 3. Save Gates for this circuit
-                    Map<Gate, Integer> gateIdMap = new HashMap<>();
+                    // 3. Save components and build component ID map
+                    Map<Component, Integer> componentIdMap = new HashMap<>();
 
+                    // Save Gates
                     if (circuit.getGates() != null) {
                         for (Gate gate : circuit.getGates()) {
                             int gateId = saveGate(gate, circuitId);
-                            gateIdMap.put(gate, gateId);
+                            componentIdMap.put(gate, gateId);
 
-                            // 4. Save Inputs for gates
+                            // Save Inputs for gates
                             if (gate.getInputs() != null) {
                                 saveInputs(gate.getInputs(), gateId);
                             }
                         }
                     }
 
-                    // 5. Save Connectors after all gates are saved
+                    // Save Switches
+                    if (circuit.getSwitches() != null) {
+                        for (Switch switchComp : circuit.getSwitches()) {
+                            int switchId = saveSwitch(switchComp, circuitId);
+                            componentIdMap.put(switchComp, switchId);
+                        }
+                    }
+
+                    // Save LEDs
+                    if (circuit.getLeds() != null) {
+                        for (LED led : circuit.getLeds()) {
+                            int ledId = saveLED(led, circuitId);
+                            componentIdMap.put(led, ledId);
+
+                            // Save Input for LED
+                            if (led.getInput() != null) {
+                                List<Input> ledInput = new ArrayList<>();
+                                ledInput.add(led.getInput());
+                                saveInputs(ledInput, ledId);
+                            }
+                        }
+                    }
+
+                    // 4. Save Connectors after all components are saved
                     if (circuit.getConnectors() != null) {
                         for (Connector connector : circuit.getConnectors()) {
-                            saveConnector(connector, gateIdMap, circuit);
+                            saveConnector(connector, componentIdMap, circuit);
                         }
                     }
                 }
@@ -178,6 +202,44 @@ public class sqlDao implements daoInterface {
         throw new SQLException("Failed to get gate ID");
     }
 
+    private int saveSwitch(Switch switchComp, int circuitId) throws SQLException {
+        String sql = "INSERT INTO Gate (circuit_id, component_type, positionX, " +
+                "positionY, component_output) VALUES (?, ?, ?, ?, ?)";
+        PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+
+        stmt.setInt(1, circuitId);
+        stmt.setString(2, switchComp.getComponentType());
+        stmt.setFloat(3, switchComp.getPositionX());
+        stmt.setFloat(4, switchComp.getPositionY());
+        stmt.setInt(5, switchComp.getOutput());
+
+        stmt.executeUpdate();
+        ResultSet keys = stmt.getGeneratedKeys();
+        if (keys.next()) {
+            return keys.getInt(1);
+        }
+        throw new SQLException("Failed to get switch ID");
+    }
+
+    private int saveLED(LED led, int circuitId) throws SQLException {
+        String sql = "INSERT INTO Gate (circuit_id, component_type, positionX, " +
+                "positionY, component_output) VALUES (?, ?, ?, ?, ?)";
+        PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+
+        stmt.setInt(1, circuitId);
+        stmt.setString(2, led.getComponentType());
+        stmt.setFloat(3, led.getPositionX());
+        stmt.setFloat(4, led.getPositionY());
+        stmt.setNull(5, java.sql.Types.INTEGER);
+
+        stmt.executeUpdate();
+        ResultSet keys = stmt.getGeneratedKeys();
+        if (keys.next()) {
+            return keys.getInt(1);
+        }
+        throw new SQLException("Failed to get LED ID");
+    }
+
     private void saveInputs(List<Input> inputs, int gateId) throws SQLException {
         String sql = "INSERT INTO Gate_Input (component_id, input_value, input_order) " +
                 "VALUES (?, ?, ?)";
@@ -192,18 +254,18 @@ public class sqlDao implements daoInterface {
         stmt.executeBatch();
     }
 
-    private void saveConnector(Connector connector, Map<Gate, Integer> gateIdMap, Circuit circuit)
+    private void saveConnector(Connector connector, Map<Component, Integer> componentIdMap, Circuit circuit)
             throws SQLException {
         String sql = "INSERT INTO Connector (component_color, source_id, sink_id, target_input_index) " +
                 "VALUES (?, ?, ?, ?)";
         PreparedStatement stmt = conn.prepareStatement(sql);
 
-        // Find the Gate objects using the IDs stored in Connector
-        Gate sourceGate = circuit.findGateById(connector.getSourceComponentId());
-        Gate sinkGate = circuit.findGateById(connector.getTargetComponentId());
+        // Find the Component objects using the IDs stored in Connector
+        Component sourceComponent = findComponentById(circuit, connector.getSourceComponentId());
+        Component sinkComponent = findComponentById(circuit, connector.getTargetComponentId());
 
-        Integer sourceId = gateIdMap.get(sourceGate);
-        Integer sinkId = gateIdMap.get(sinkGate);
+        Integer sourceId = componentIdMap.get(sourceComponent);
+        Integer sinkId = componentIdMap.get(sinkComponent);
 
         if (sourceId != null && sinkId != null) {
             stmt.setString(1, connector.getWireColor());
@@ -212,6 +274,22 @@ public class sqlDao implements daoInterface {
             stmt.setInt(4, connector.getTargetInputIndex());
             stmt.executeUpdate();
         }
+    }
+
+    private Component findComponentById(Circuit circuit, int componentId) {
+        // Check gates
+        Gate gate = circuit.findGateById(componentId);
+        if (gate != null) return gate;
+
+        // Check switches
+        Switch switchComp = circuit.findSwitchById(componentId);
+        if (switchComp != null) return switchComp;
+
+        // Check LEDs
+        LED led = circuit.findLEDById(componentId);
+        if (led != null) return led;
+
+        return null;
     }
 
     /**
@@ -249,13 +327,18 @@ public class sqlDao implements daoInterface {
                 circuit.setCircuitName(circuitRs.getString("circuitName"));
                 int circuitId = circuitRs.getInt("circuitID");
 
-                // 3. Load Gates and build gateMap
-                Map<Integer, Gate> gateMap = new HashMap<>();
-                List<Gate> gates = loadGates(circuitId, gateMap);
+                // 3. Load all components and build componentMap
+                Map<Integer, Component> componentMap = new HashMap<>();
+                List<Gate> gates = loadGates(circuitId, componentMap);
+                List<Switch> switches = loadSwitches(circuitId, componentMap);
+                List<LED> leds = loadLEDs(circuitId, componentMap);
+                
                 circuit.setGates(gates);
+                circuit.setSwitches(switches);
+                circuit.setLeds(leds);
 
                 // 4. Load Connectors
-                List<Connector> connectors = loadConnectors(circuitId, gateMap);
+                List<Connector> connectors = loadConnectors(circuitId, componentMap);
                 circuit.setConnectors(connectors);
 
                 circuits.add(circuit);
@@ -270,13 +353,14 @@ public class sqlDao implements daoInterface {
         }
     }
 
-    private List<Gate> loadGates(int circuitId, Map<Integer, Gate> gateMap)
+    private List<Gate> loadGates(int circuitId, Map<Integer, Component> componentMap)
             throws SQLException {
         List<Gate> gates = new ArrayList<>();
 
-        // Load all gates
+        // Load all gates (AND, OR, NOT)
         String sql = "SELECT component_id, component_type, positionX, positionY, " +
-                "component_output FROM Gate WHERE circuit_id = ?";
+                "component_output FROM Gate WHERE circuit_id = ? " +
+                "AND component_type IN ('AND', 'OR', 'NOT')";
         PreparedStatement stmt = conn.prepareStatement(sql);
         stmt.setInt(1, circuitId);
         ResultSet rs = stmt.executeQuery();
@@ -301,11 +385,69 @@ public class sqlDao implements daoInterface {
                 gate.setInputs(inputs);
 
                 gates.add(gate);
-                gateMap.put(gateId, gate);
+                componentMap.put(gateId, gate);
             }
         }
 
         return gates;
+    }
+
+    private List<Switch> loadSwitches(int circuitId, Map<Integer, Component> componentMap)
+            throws SQLException {
+        List<Switch> switches = new ArrayList<>();
+
+        // Load all switches
+        String sql = "SELECT component_id, positionX, positionY, component_output " +
+                "FROM Gate WHERE circuit_id = ? AND component_type = 'Switch'";
+        PreparedStatement stmt = conn.prepareStatement(sql);
+        stmt.setInt(1, circuitId);
+        ResultSet rs = stmt.executeQuery();
+
+        while (rs.next()) {
+            int switchId = rs.getInt("component_id");
+            int posX = (int) rs.getFloat("positionX");
+            int posY = (int) rs.getFloat("positionY");
+            int output = rs.getInt("component_output");
+
+            Switch switchComp = new Switch(switchId, posX, posY);
+            switchComp.setOn(output == 1);
+
+            switches.add(switchComp);
+            componentMap.put(switchId, switchComp);
+        }
+
+        return switches;
+    }
+
+    private List<LED> loadLEDs(int circuitId, Map<Integer, Component> componentMap)
+            throws SQLException {
+        List<LED> leds = new ArrayList<>();
+
+        // Load all LEDs
+        String sql = "SELECT component_id, positionX, positionY " +
+                "FROM Gate WHERE circuit_id = ? AND component_type = 'LED'";
+        PreparedStatement stmt = conn.prepareStatement(sql);
+        stmt.setInt(1, circuitId);
+        ResultSet rs = stmt.executeQuery();
+
+        while (rs.next()) {
+            int ledId = rs.getInt("component_id");
+            int posX = (int) rs.getFloat("positionX");
+            int posY = (int) rs.getFloat("positionY");
+
+            LED led = new LED(ledId, posX, posY);
+
+            // Load input for LED
+            List<Input> inputs = loadInputs(ledId);
+            if (!inputs.isEmpty()) {
+                led.setInput(inputs.get(0));
+            }
+
+            leds.add(led);
+            componentMap.put(ledId, led);
+        }
+
+        return leds;
     }
 
     private List<Input> loadInputs(int gateId) throws SQLException {
@@ -340,7 +482,7 @@ public class sqlDao implements daoInterface {
         return inputs;
     }
 
-    private List<Connector> loadConnectors(int circuitId, Map<Integer, Gate> gateMap)
+    private List<Connector> loadConnectors(int circuitId, Map<Integer, Component> componentMap)
             throws SQLException {
         List<Connector> connectors = new ArrayList<>();
 
@@ -361,19 +503,28 @@ public class sqlDao implements daoInterface {
             int sourceId = rs.getInt("source_id");
             int sinkId = rs.getInt("sink_id");
 
-            Gate sourceGate = gateMap.get(sourceId);
-            Gate sinkGate = gateMap.get(sinkId);
+            Component sourceComponent = componentMap.get(sourceId);
+            Component sinkComponent = componentMap.get(sinkId);
 
-            if (sourceGate != null && sinkGate != null) {
-                connector.setSourceComponentId(sourceGate.getComponentId());
-                connector.setTargetComponentId(sinkGate.getComponentId());
+            if (sourceComponent != null && sinkComponent != null) {
+                connector.setSourceComponentId(sourceComponent.getComponentId());
+                connector.setTargetComponentId(sinkComponent.getComponentId());
                 connectors.add(connector);
                 
-                // Update sink gate input connection
-                Input input = (connector.getTargetInputIndex() == 0) ? 
-                              sinkGate.getInput1() : sinkGate.getInput2();
-                if (input != null) {
-                    input.setSourceComponentId(sourceGate.getComponentId());
+                // Update sink component input connection
+                if (sinkComponent instanceof Gate) {
+                    Gate sinkGate = (Gate) sinkComponent;
+                    Input input = (connector.getTargetInputIndex() == 0) ? 
+                                  sinkGate.getInput1() : sinkGate.getInput2();
+                    if (input != null) {
+                        input.setSourceComponentId(sourceComponent.getComponentId());
+                    }
+                } else if (sinkComponent instanceof LED) {
+                    LED sinkLED = (LED) sinkComponent;
+                    Input input = sinkLED.getInput();
+                    if (input != null) {
+                        input.setSourceComponentId(sourceComponent.getComponentId());
+                    }
                 }
             }
         }
