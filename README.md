@@ -10,12 +10,25 @@ It supports multiple circuits per project, sub-circuits, and provides truth tabl
 **Campus:** Lahore  
 **Semester:** 5th Semester, BS Software Engineering  
 **Course:** Software Construction and Development  
-**Instructor:** Farooq Ahmed  
+**Instructor:** Dr. Farooq Ahmed  
+
+## Contributors
+- **Muhammad Ahmad Butt**  
+  - **Roll Number:** 23L-3059  
+  - **GitHub:** [A-git-nerd](https://github.com/A-git-nerd)
+
+- **Arham Basit**  
+  - **Roll Number:** 23L-3016  
+  - **GitHub:** [Arham-codes](https://github.com/Arham-codes)
+
+- **Abd Ur Rehman**  
+  - **Roll Number:** 23L-3105  
+  - **GitHub:** [A-noob-in-coding](https://github.com/A-noob-in-Coding)
 
 ## Tech Stack
 - **Language:** Java  
-- **Framework:** Swing (GUI)  
-- **Build Tool:** Maven  
+- **Framework:** Swing (GUI), JUnit  
+- **Build Tool:** Maven, ANT  
 - **Version Control:** Git & GitHub  
 
 ## Features
@@ -24,10 +37,10 @@ It supports multiple circuits per project, sub-circuits, and provides truth tabl
   - Support for multiple circuits and sub-circuits  
 
 - **Circuit Design**
-  - Component palette with logic gates (AND, OR, NOT, etc.)  
+  - Component palette with logic gates (AND, OR, NOT.)  
   - Connect components using wires/connectors  
   - Adjustable layout and component positioning  
-  - Export circuit diagrams to PNG or JPEG  
+  - Export circuit diagrams to PNG  
 
 - **Simulation**
   - Run simulations by providing input values  
@@ -36,20 +49,20 @@ It supports multiple circuits per project, sub-circuits, and provides truth tabl
 
 - **User Interface**
   - Intuitive and easy-to-use Swing-based GUI  
-  - Layered architecture separating UI, logic, and data  
+  - Layered architecture separating UI, logic, and data
 
-## Contributors
-- **Muhammad Ahmad Butt**  
-  - **Roll Number:** 23L-3059  
-  - **GitHub:** [A-git-nerd](https://github.com/A-git-nerd)
+## Screenshots
+![Main Circuit](demo/Main_Circuit.png)
+**Fig: Main_Circuit.png**
 
-- **Abd Ur Rehman**  
-  - **Roll Number:** 23L-3105  
-  - **GitHub:** [A-noob-in-coding](https://github.com/A-noob-in-Coding)
+![Circuit 2](demo/Circuit_2.png)
+**Fig: Circuit_2.png** -
 
-- **Arham Basit**  
-  - **Roll Number:** 23L-3016  
-  - **GitHub:** [Arham-codes](https://github.com/Arham-codes)
+![Multiple Circuits](demo/multi_circuits.png)
+**Fig: multi_circuits.png**
+
+![Simulation](demo/Simulate.png)
+**Fig: Simulate.png** 
 
 ## How to Run
 
@@ -61,12 +74,14 @@ You can verify installations by running these commands in your terminal:
 ```bash
 java --version
 mvn --version
+ant -v
 ```
 ## Expected version:
 
 ```
 java 24.0.2
 Apache Maven 3.9.11
+Apache Ant(TM) version 1.10.15
 ```
 
 ### Steps to Run
@@ -91,5 +106,4 @@ Apache Maven 3.9.11
      java -cp target/classes org.scd.Main
      ```
 
-© 2025 **LogiSim** – FAST NUCES. All rights reserved.
-
+© This project is developed as an academic exercise for the Software Construction and Development course. All gate PNGs used in this project are for educational purposes from Wikipedia.
