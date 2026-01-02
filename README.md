@@ -15,7 +15,7 @@ It supports multiple circuits per project, sub-circuits, and provides truth tabl
 ## Contributors
 - **Muhammad Ahmad Butt**  
   - **Roll Number:** 23L-3059  
-  - **GitHub:** [A-git-nerd](https://github.com/A-git-nerd)
+  - **GitHub:** [m-ahmad-butt](https://github.com/m-ahmad-butt)
 
 - **Arham Basit**  
   - **Roll Number:** 23L-3016  
@@ -89,7 +89,7 @@ Apache Ant(TM) version 1.10.15
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/A-git-nerd/LogiSim.git
+   git clone https://github.com/m-ahmad-butt/LogiSim.git
    ```
 
 2. **Open in IDE:**
